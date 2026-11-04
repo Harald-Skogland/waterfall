@@ -106,36 +106,38 @@
   const IOS = {
     comment: s => "// " + s,
     line: (t, v) => "static let " + t.ios + " = " + v,
-    value: (model, p, dark, t) => t.D == null || (t.D === t.L && !KNOWN_DARK_SAME.test(t.name)) ? iosExpr(model, t.L, false)
+    value: (model, p, dark, t, ctx) => !ctx.withDark || t.D == null || (t.D === t.L && !KNOWN_DARK_SAME.test(t.name)) ? iosExpr(model, t.L, false)
       : "Color(light: " + iosExpr(model, t.L, true) + ", dark: " + iosExpr(model, t.D, true) + ")",
   };
   // lines for keys (kept in model order), grouped under "Tier · folder" comments
-  function section(model, keys, P, dark, indent) {
+  function section(model, keys, P, dark, indent, ctx = { withDark: true }) {
     const want = new Set(keys), out = []; let last = null;
     for (const t of model.tokens) {
       if (!want.has(t.k)) continue;
       const head = t.tier + " · " + (t.folder || "(root)");
       if (head !== last) { out.push({ k: null, text: indent + P.comment(head) }); last = head; }
-      out.push({ k: t.k, text: indent + P.line(t, P.value(model, parse(dark ? t.D : t.L), dark, t)) });
+      out.push({ k: t.k, text: indent + P.line(t, P.value(model, parse(dark ? t.D : t.L), dark, t, ctx)) });
     }
     return out;
   }
 
   function defLines(model, keys, platform, opts) {
-    const full = !!(opts && opts.full), dk = new Set(darkKeys(model)), darkOnes = keys.filter(k => dk.has(k));
+    // opts.dark === false: Light only (the page's "Display Dark mode" is unchecked)
+    const full = !!(opts && opts.full), withDark = !(opts && opts.dark === false), ctx = { withDark };
+    const dk = new Set(withDark ? darkKeys(model) : []), darkOnes = keys.filter(k => dk.has(k));
     if (platform === "web") {
       if (full) return [{ k: null, text: ":root {" }, ...section(model, keys, WEB, false, "  "), { k: null, text: "}" },
-        { k: null, text: '[data-theme="dark"] {' }, ...section(model, darkOnes, WEB, true, "  "), { k: null, text: "}" }];
+        ...(withDark ? [{ k: null, text: '[data-theme="dark"] {' }, ...section(model, darkOnes, WEB, true, "  "), { k: null, text: "}" }] : [])];
       const out = [{ k: null, text: WEB.comment("Light: paste into :root") }, ...section(model, keys, WEB, false, "")];
       if (darkOnes.length) out.push({ k: null, text: "" }, { k: null, text: WEB.comment('Dark: paste into [data-theme="dark"]') }, ...section(model, darkOnes, WEB, true, ""));
       return out;
     }
     if (platform === "android") {
-      const night = opts && opts.file === "night", lines = section(model, night ? darkOnes : keys, ANDROID, night, full ? "    " : "");
+      const night = withDark && opts && opts.file === "night", lines = section(model, night ? darkOnes : keys, ANDROID, night, full ? "    " : "");
       return full ? [{ k: null, text: '<?xml version="1.0" encoding="utf-8"?>' }, { k: null, text: "<resources>" }, ...lines, { k: null, text: "</resources>" }] : lines;
     }
     if (platform === "ios") {
-      const lines = section(model, keys, IOS, false, full ? "  " : "");
+      const lines = section(model, keys, IOS, false, full ? "  " : "", ctx);
       return full ? [{ k: null, text: "import SwiftUI" }, { k: null, text: "" }, ...IOS_HELPERS.split("\n").map(text => ({ k: null, text })), { k: null, text: "" },
         { k: null, text: "extension Color {" }, ...lines, { k: null, text: "}" }] : lines;
     }

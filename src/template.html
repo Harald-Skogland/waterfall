@@ -164,6 +164,7 @@ button, input { font: inherit; color: inherit; }
 .codepage:not([hidden]) { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; overflow: hidden; }
 .cs-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .cs-all { border: 1px solid var(--ink); background: var(--ink); color: var(--panel); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-weight: 500; }
+.cs-note { font-size: 12px; padding: 6px 10px; border-radius: 6px; background: var(--sunk); color: var(--ink); }
 .cs-warn { font-size: 12px; padding: 6px 10px; border-radius: 6px; background: var(--flag-warn-bg); color: var(--flag-warn); }
 .cs-body { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 14px; min-height: 0; }
 .cs-tree, .cs-prev { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-height: 0; overflow: auto; }
@@ -267,6 +268,7 @@ button, input { font: inherit; color: inherit; }
       <button type="button" class="cs-all" id="cs-all">Copy all</button>
     </div>
     <div class="cs-warn" id="cs-warn" hidden></div>
+    <div class="cs-note" id="cs-note" hidden>Light only. Tick <b>Display Dark mode (3)</b> to include the Dark values.</div>
     <div class="cs-body">
       <nav class="cs-tree" id="cs-tree" aria-label="Tiers and folders"></nav>
       <div class="cs-prev">
@@ -479,7 +481,9 @@ button, input { font: inherit; color: inherit; }
     document.querySelectorAll("#cs-platform button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.platform));
     document.querySelectorAll("#cs-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.mode));
     document.querySelectorAll("#cs-file button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.file));
-    $("#cs-file").hidden = !(cs.platform === "android" && cs.mode === "defs");
+    const withDark = mode === "dark"; // follows the header's Display Dark mode checkbox
+    $("#cs-file").hidden = !(withDark && cs.platform === "android" && cs.mode === "defs");
+    $("#cs-note").hidden = withDark || cs.mode !== "defs";
     const dups = CSX.duplicates(cs.model, cs.platform);
     $("#cs-warn").hidden = !dups.length;
     $("#cs-warn").textContent = dups.map(d => `Duplicate name on ${cs.platform === "ios" ? "iOS" : cs.platform[0].toUpperCase() + cs.platform.slice(1)}: ${d.name} (${d.keys.map(k => cs.model.byKey[k].name).join(", ")})`).join(" · ");
@@ -494,9 +498,9 @@ button, input { font: inherit; color: inherit; }
     const isWhole = cs.sel.tier === WHOLE;
     if (isWhole) cs.lines = csAllLines(); // the whole theme is always complete, whatever the search
     else { const keys = list.filter(t => inSel(t, cs.sel)).map(t => t.k);
-      cs.lines = !keys.length ? [] : cs.mode === "names" ? CSX.namesLines(cs.model, keys, cs.platform) : CSX.defLines(cs.model, keys, cs.platform, { full: false, file: cs.file }); }
+      cs.lines = !keys.length ? [] : cs.mode === "names" ? CSX.namesLines(cs.model, keys, cs.platform) : CSX.defLines(cs.model, keys, cs.platform, { full: false, file: cs.file, dark: withDark }); }
     $("#cs-copyf").textContent = isWhole ? "Copy all" : "Copy folder";
-    $("#cs-title").textContent = (isWhole ? "Whole theme" : cs.sel.tier + (cs.sel.path ? " · " + cs.sel.path : "")) + (cs.platform === "android" && cs.mode === "defs" ? (cs.file === "night" ? " · values-night/colors.xml" : " · values/colors.xml") : "");
+    $("#cs-title").textContent = (isWhole ? "Whole theme" : cs.sel.tier + (cs.sel.path ? " · " + cs.sel.path : "")) + (cs.platform === "android" && cs.mode === "defs" ? (withDark && cs.file === "night" ? " · values-night/colors.xml" : " · values/colors.xml") : "");
     $("#cs-copyf").disabled = !cs.lines.length;
     $("#cs-code").innerHTML = cs.lines.length ? cs.lines.map((l, i) => l.k ? `<span class="ln${l.k === cs.hl ? " hl" : ""}" data-line="${i}" role="button" tabindex="0" title="Click to copy this line">${csPaint(l.text)}</span>` : `<span class="c">${esc(l.text) || " "}</span>`).join("")
       : '<span class="c">' + (filtering ? "No match" : "Nothing here") + "</span>";
@@ -507,7 +511,7 @@ button, input { font: inherit; color: inherit; }
     return h.replace(/^(\s*)(--[\w-]+)(?=:)/, '$1<span class="nm">$2</span>').replace(/(name=&quot;)(\w+)(&quot;)/, '$1<span class="nm">$2</span>$3')
       .replace(/(static let )(\w+)/, '$1<span class="nm">$2</span>').replace(/^(var\(|R\.color\.|\.)([\w-]+)/, '$1<span class="nm">$2</span>'); }
   const csAllLines = () => { const all = cs.model.tokens.map(t => t.k);
-    return cs.mode === "names" ? CSX.namesLines(cs.model, all, cs.platform) : CSX.defLines(cs.model, all, cs.platform, { full: true, file: cs.file }); };
+    return cs.mode === "names" ? CSX.namesLines(cs.model, all, cs.platform) : CSX.defLines(cs.model, all, cs.platform, { full: true, file: cs.file, dark: mode === "dark" }); };
   function csCopy(text, btn, label) { copyText(text).then(() => { if (!btn) return; const old = label || btn.textContent; btn.textContent = "Copied"; btn.classList?.add("ok"); setTimeout(() => { btn.textContent = old; btn.classList?.remove("ok"); }, 1200); }, () => {}); }
   const csSet = (key, v, store) => { cs[key] = v; if (store) try { localStorage.setItem(store, v); } catch (e) {} renderCode(); };
   $("#cs-platform").addEventListener("click", e => { const b = e.target.closest("button"); if (b) csSet("platform", b.dataset.v, "wf2-cs-platform"); });
@@ -553,7 +557,7 @@ button, input { font: inherit; color: inherit; }
   $("#showall").addEventListener("change", applyFocus);
   $("#scroller").addEventListener("scroll", () => requestAnimationFrame(placeHeads), { passive: true });
   function setDark(on) { mode = on ? "dark" : "light"; $("#darkmode").checked = on; if (!on && sel && sel[0] === "D") sel = "M" + sel.slice(1);
-    try { localStorage.setItem("wf2-mode", mode); } catch (x) {} buildFall(); renderTrace(); }
+    try { localStorage.setItem("wf2-mode", mode); } catch (x) {} buildFall(); renderTrace(); if (view === "code") renderCode(); }
   $("#darkmode").addEventListener("change", e => setDark(e.target.checked));
   // hotkeys: 1 Waterfall, 2 Problems, 3 Display Dark mode, Esc clear selection (ignored while typing in a field)
   document.addEventListener("keydown", e => {

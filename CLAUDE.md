@@ -104,6 +104,7 @@ The export is read only. **Never change variables in Figma as part of work on th
   - Lines show a "Copy" badge at the far right on hover, which turns into "Copied" on click. The View arrival highlight is a blue band with a left accent bar, held for 4 s.
   - All copying goes through `copyText()`, which uses the Clipboard API and falls back to a hidden textarea + `execCommand` where the API is blocked (sandboxed frames, the app's browser pane).
   - The code pane is IDE style and always dark (light text on `#141414`, green comments, blue token names), whatever the page theme.
+  - **Display Dark mode (3) also drives this page.** Unchecked, Definitions are Light only (`defLines(..., { dark: false })`): no Web Dark block, no Android values-night tab, and iOS tokens as single Light colors. A note says so. Checked, all Dark output is back. Names are the same either way.
   - The known Dark = Light utilities (`CodeSyntax.KNOWN_DARK_SAME`: utility red/orange/green/purple in Mapped and Components) always get a Dark entry: in the Web Dark block, the Android night file, and as `Color(light:dark:)` on iOS, even though Dark equals Light. The same pattern drives the Problems page's Notes section.
   - Names output carries folder comment headers too (`/* … */` on Web, `// …` on Android/iOS).
   - Search (S) filters the tree on this page; Esc clears the search here (on the Waterfall, Esc clears the selection).

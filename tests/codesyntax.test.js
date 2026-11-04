@@ -150,3 +150,14 @@ test("known Dark=Light utilities are printed in the dark output", () => {
   assert.match(CS.toText(CS.defLines(m, [c], "android", { file: "night" })), /ga_color_utility_red_border">@color\/ga_color_utility_red</);
   assert.match(CS.toText(CS.defLines(m, [k], "ios", {})), /static let gaColorUtilityRed = Color\(light: \.gaColorAliasUtilityRed, dark: \.gaColorAliasUtilityRed\)/);
 });
+
+// ---------- Light only (Display Dark mode unchecked) ----------
+test("dark: false leaves all Dark output out", () => {
+  const all = m.tokens.map(x => x.k), body = key("text/default/body");
+  const web = CS.toText(CS.defLines(m, all, "web", { full: true, dark: false }));
+  assert.ok(web.startsWith(":root {")); assert.equal(web.includes("[data-theme"), false);
+  assert.equal(CS.toText(CS.defLines(m, [body], "web", { dark: false })).includes("Dark:"), false);
+  assert.match(CS.toText(CS.defLines(m, [body], "ios", { dark: false })), /static let gaColorTextBody = Color\.gaColorAliasTextBody$/m);
+  assert.match(CS.toText(CS.defLines(m, [body], "android", { file: "night", dark: false })), /ga_color_text_body">@color\/ga_color_alias_text_body</); // night falls back to the light file
+  assert.match(CS.toText(CS.defLines(m, [body], "web", {})), /Dark:/); // default still includes Dark
+});

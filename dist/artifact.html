@@ -164,6 +164,7 @@ button, input { font: inherit; color: inherit; }
 .codepage:not([hidden]) { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; overflow: hidden; }
 .cs-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .cs-all { border: 1px solid var(--ink); background: var(--ink); color: var(--panel); border-radius: 6px; padding: 6px 12px; cursor: pointer; font-weight: 500; }
+.cs-note { font-size: 12px; padding: 6px 10px; border-radius: 6px; background: var(--sunk); color: var(--ink); }
 .cs-warn { font-size: 12px; padding: 6px 10px; border-radius: 6px; background: var(--flag-warn-bg); color: var(--flag-warn); }
 .cs-body { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 14px; min-height: 0; }
 .cs-tree, .cs-prev { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; min-height: 0; overflow: auto; }
@@ -267,6 +268,7 @@ button, input { font: inherit; color: inherit; }
       <button type="button" class="cs-all" id="cs-all">Copy all</button>
     </div>
     <div class="cs-warn" id="cs-warn" hidden></div>
+    <div class="cs-note" id="cs-note" hidden>Light only. Tick <b>Display Dark mode (3)</b> to include the Dark values.</div>
     <div class="cs-body">
       <nav class="cs-tree" id="cs-tree" aria-label="Tiers and folders"></nav>
       <div class="cs-prev">
@@ -393,36 +395,38 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
   const IOS = {
     comment: s => "// " + s,
     line: (t, v) => "static let " + t.ios + " = " + v,
-    value: (model, p, dark, t) => t.D == null || (t.D === t.L && !KNOWN_DARK_SAME.test(t.name)) ? iosExpr(model, t.L, false)
+    value: (model, p, dark, t, ctx) => !ctx.withDark || t.D == null || (t.D === t.L && !KNOWN_DARK_SAME.test(t.name)) ? iosExpr(model, t.L, false)
       : "Color(light: " + iosExpr(model, t.L, true) + ", dark: " + iosExpr(model, t.D, true) + ")",
   };
   // lines for keys (kept in model order), grouped under "Tier · folder" comments
-  function section(model, keys, P, dark, indent) {
+  function section(model, keys, P, dark, indent, ctx = { withDark: true }) {
     const want = new Set(keys), out = []; let last = null;
     for (const t of model.tokens) {
       if (!want.has(t.k)) continue;
       const head = t.tier + " · " + (t.folder || "(root)");
       if (head !== last) { out.push({ k: null, text: indent + P.comment(head) }); last = head; }
-      out.push({ k: t.k, text: indent + P.line(t, P.value(model, parse(dark ? t.D : t.L), dark, t)) });
+      out.push({ k: t.k, text: indent + P.line(t, P.value(model, parse(dark ? t.D : t.L), dark, t, ctx)) });
     }
     return out;
   }
 
   function defLines(model, keys, platform, opts) {
-    const full = !!(opts && opts.full), dk = new Set(darkKeys(model)), darkOnes = keys.filter(k => dk.has(k));
+    // opts.dark === false: Light only (the page's "Display Dark mode" is unchecked)
+    const full = !!(opts && opts.full), withDark = !(opts && opts.dark === false), ctx = { withDark };
+    const dk = new Set(withDark ? darkKeys(model) : []), darkOnes = keys.filter(k => dk.has(k));
     if (platform === "web") {
       if (full) return [{ k: null, text: ":root {" }, ...section(model, keys, WEB, false, "  "), { k: null, text: "}" },
-        { k: null, text: '[data-theme="dark"] {' }, ...section(model, darkOnes, WEB, true, "  "), { k: null, text: "}" }];
+        ...(withDark ? [{ k: null, text: '[data-theme="dark"] {' }, ...section(model, darkOnes, WEB, true, "  "), { k: null, text: "}" }] : [])];
       const out = [{ k: null, text: WEB.comment("Light: paste into :root") }, ...section(model, keys, WEB, false, "")];
       if (darkOnes.length) out.push({ k: null, text: "" }, { k: null, text: WEB.comment('Dark: paste into [data-theme="dark"]') }, ...section(model, darkOnes, WEB, true, ""));
       return out;
     }
     if (platform === "android") {
-      const night = opts && opts.file === "night", lines = section(model, night ? darkOnes : keys, ANDROID, night, full ? "    " : "");
+      const night = withDark && opts && opts.file === "night", lines = section(model, night ? darkOnes : keys, ANDROID, night, full ? "    " : "");
       return full ? [{ k: null, text: '<?xml version="1.0" encoding="utf-8"?>' }, { k: null, text: "<resources>" }, ...lines, { k: null, text: "</resources>" }] : lines;
     }
     if (platform === "ios") {
-      const lines = section(model, keys, IOS, false, full ? "  " : "");
+      const lines = section(model, keys, IOS, false, full ? "  " : "", ctx);
       return full ? [{ k: null, text: "import SwiftUI" }, { k: null, text: "" }, ...IOS_HELPERS.split("\n").map(text => ({ k: null, text })), { k: null, text: "" },
         { k: null, text: "extension Color {" }, ...lines, { k: null, text: "}" }] : lines;
     }
@@ -646,7 +650,9 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
     document.querySelectorAll("#cs-platform button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.platform));
     document.querySelectorAll("#cs-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.mode));
     document.querySelectorAll("#cs-file button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.file));
-    $("#cs-file").hidden = !(cs.platform === "android" && cs.mode === "defs");
+    const withDark = mode === "dark"; // follows the header's Display Dark mode checkbox
+    $("#cs-file").hidden = !(withDark && cs.platform === "android" && cs.mode === "defs");
+    $("#cs-note").hidden = withDark || cs.mode !== "defs";
     const dups = CSX.duplicates(cs.model, cs.platform);
     $("#cs-warn").hidden = !dups.length;
     $("#cs-warn").textContent = dups.map(d => `Duplicate name on ${cs.platform === "ios" ? "iOS" : cs.platform[0].toUpperCase() + cs.platform.slice(1)}: ${d.name} (${d.keys.map(k => cs.model.byKey[k].name).join(", ")})`).join(" · ");
@@ -661,9 +667,9 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
     const isWhole = cs.sel.tier === WHOLE;
     if (isWhole) cs.lines = csAllLines(); // the whole theme is always complete, whatever the search
     else { const keys = list.filter(t => inSel(t, cs.sel)).map(t => t.k);
-      cs.lines = !keys.length ? [] : cs.mode === "names" ? CSX.namesLines(cs.model, keys, cs.platform) : CSX.defLines(cs.model, keys, cs.platform, { full: false, file: cs.file }); }
+      cs.lines = !keys.length ? [] : cs.mode === "names" ? CSX.namesLines(cs.model, keys, cs.platform) : CSX.defLines(cs.model, keys, cs.platform, { full: false, file: cs.file, dark: withDark }); }
     $("#cs-copyf").textContent = isWhole ? "Copy all" : "Copy folder";
-    $("#cs-title").textContent = (isWhole ? "Whole theme" : cs.sel.tier + (cs.sel.path ? " · " + cs.sel.path : "")) + (cs.platform === "android" && cs.mode === "defs" ? (cs.file === "night" ? " · values-night/colors.xml" : " · values/colors.xml") : "");
+    $("#cs-title").textContent = (isWhole ? "Whole theme" : cs.sel.tier + (cs.sel.path ? " · " + cs.sel.path : "")) + (cs.platform === "android" && cs.mode === "defs" ? (withDark && cs.file === "night" ? " · values-night/colors.xml" : " · values/colors.xml") : "");
     $("#cs-copyf").disabled = !cs.lines.length;
     $("#cs-code").innerHTML = cs.lines.length ? cs.lines.map((l, i) => l.k ? `<span class="ln${l.k === cs.hl ? " hl" : ""}" data-line="${i}" role="button" tabindex="0" title="Click to copy this line">${csPaint(l.text)}</span>` : `<span class="c">${esc(l.text) || " "}</span>`).join("")
       : '<span class="c">' + (filtering ? "No match" : "Nothing here") + "</span>";
@@ -674,7 +680,7 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
     return h.replace(/^(\s*)(--[\w-]+)(?=:)/, '$1<span class="nm">$2</span>').replace(/(name=&quot;)(\w+)(&quot;)/, '$1<span class="nm">$2</span>$3')
       .replace(/(static let )(\w+)/, '$1<span class="nm">$2</span>').replace(/^(var\(|R\.color\.|\.)([\w-]+)/, '$1<span class="nm">$2</span>'); }
   const csAllLines = () => { const all = cs.model.tokens.map(t => t.k);
-    return cs.mode === "names" ? CSX.namesLines(cs.model, all, cs.platform) : CSX.defLines(cs.model, all, cs.platform, { full: true, file: cs.file }); };
+    return cs.mode === "names" ? CSX.namesLines(cs.model, all, cs.platform) : CSX.defLines(cs.model, all, cs.platform, { full: true, file: cs.file, dark: mode === "dark" }); };
   function csCopy(text, btn, label) { copyText(text).then(() => { if (!btn) return; const old = label || btn.textContent; btn.textContent = "Copied"; btn.classList?.add("ok"); setTimeout(() => { btn.textContent = old; btn.classList?.remove("ok"); }, 1200); }, () => {}); }
   const csSet = (key, v, store) => { cs[key] = v; if (store) try { localStorage.setItem(store, v); } catch (e) {} renderCode(); };
   $("#cs-platform").addEventListener("click", e => { const b = e.target.closest("button"); if (b) csSet("platform", b.dataset.v, "wf2-cs-platform"); });
@@ -720,7 +726,7 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
   $("#showall").addEventListener("change", applyFocus);
   $("#scroller").addEventListener("scroll", () => requestAnimationFrame(placeHeads), { passive: true });
   function setDark(on) { mode = on ? "dark" : "light"; $("#darkmode").checked = on; if (!on && sel && sel[0] === "D") sel = "M" + sel.slice(1);
-    try { localStorage.setItem("wf2-mode", mode); } catch (x) {} buildFall(); renderTrace(); }
+    try { localStorage.setItem("wf2-mode", mode); } catch (x) {} buildFall(); renderTrace(); if (view === "code") renderCode(); }
   $("#darkmode").addEventListener("change", e => setDark(e.target.checked));
   // hotkeys: 1 Waterfall, 2 Problems, 3 Display Dark mode, Esc clear selection (ignored while typing in a field)
   document.addEventListener("keydown", e => {
