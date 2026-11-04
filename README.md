@@ -20,7 +20,7 @@ Live page: https://harald-skogland.github.io/waterfall/
 - Clicking a mapped token highlights its route back to Foundation.
 - Lines that aren't on the route are hidden.
 - **Show all connections** draws every link when nothing is selected.
-- **Clear** clears it (`Esc`). `S` jumps to search.
+- **Clear** clears it (`Esc`). `S` jumps to search. Search matches all the words you type, in any order (for example `button primary`), across names, hex values and code syntax.
 
 **Trace panel.** Fixed on the right. It shows the Light and Dark values, each route from Foundation down to the token, then the description, scope, whether it's hidden from publishing, code syntax for Web, Android and iOS (each with a copy button), and flags.
 

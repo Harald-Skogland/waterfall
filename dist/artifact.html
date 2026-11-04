@@ -433,10 +433,12 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
     else if (e.key === "0") { e.preventDefault(); location.hash = "problems"; }
     else if (e.key === "s" || e.key === "S") { e.preventDefault(); $("#q").focus(); $("#q").select(); }
     else if (e.key === "3") { e.preventDefault(); setDark(mode !== "dark"); } });
-  const index = [...FK, ...AG, ...AM, ...MK].map(k => ({ k, hay: (nameOf(k) + " " + val[k].text + " " + (k[0] === "M" ? mDark[k].text + " " + row(k)[3] : k[0] === "A" ? row(k)[2] : "")).toLowerCase() }));
-  $("#q").addEventListener("input", () => { const q = $("#q").value.trim().toLowerCase().replace(/^#/, ""); const box = $("#hits");
-    if (!q) { box.hidden = true; return; } const hits = index.filter(x => x.hay.includes(q)).slice(0, 40);
-    box.innerHTML = hits.length ? hits.map(x => `<button type="button" data-k="${x.k}"><span class="t">${x.k[0]}</span>${sw(val[x.k].css)}<span>${esc(nameOf(x.k))}</span></button>`).join("") : `<div class="muted" style="padding:8px 10px">No match</div>`; box.hidden = false; });
+  // search: every word must match somewhere (AND), in any order; looks at name, hex values and all code syntaxes
+  const index = [...FK, ...AG, ...AM, ...MK].map(k => { const m = metaOf(k);
+    return { k, hay: [nameOf(k), val[k].text, k[0] === "M" ? mDark[k].text : "", m.web, m.android, m.ios].join(" ").toLowerCase() }; });
+  $("#q").addEventListener("input", () => { const terms = $("#q").value.trim().toLowerCase().split(/\s+/).map(t => t.replace(/^#/, "")).filter(Boolean); const box = $("#hits");
+    if (!terms.length) { box.hidden = true; return; } const all = index.filter(x => terms.every(t => x.hay.includes(t))), hits = all.slice(0, 60);
+    box.innerHTML = hits.length ? hits.map(x => `<button type="button" data-k="${x.k}"><span class="t">${x.k[0]}</span>${sw(val[x.k].css)}<span>${esc(nameOf(x.k))}</span></button>`).join("") + (all.length > hits.length ? `<div class="muted" style="padding:6px 10px">Showing ${hits.length} of ${all.length}. Add a word to narrow it down.</div>` : "") : `<div class="muted" style="padding:8px 10px">No match</div>`; box.hidden = false; });
   let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawLinks, 120); });
   // zoom controls, wheel zoom and drag to pan
   $("#z-in").addEventListener("click", () => setZoom(zoom * 1.2));

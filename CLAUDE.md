@@ -94,6 +94,7 @@ The export is read only. **Never change variables in Figma as part of work on th
 **Controls**
 - Button labels carry their hotkey in the text: "Waterfall (1)", "Code syntax (2)", "Display Dark mode (3)", "Clear (Esc)", "Problems (0)"; the search placeholder is "Search (S)".
 - Header toolbar is three groups: left = Waterfall / Code syntax tabs + Display Dark mode; center = search (about 280 px), Clear, Show all connections; far right = Problems. Under 1200 px the center group moves to its own centered row.
+- Search matches every typed word in any order (AND), across name, Light/Dark hex and Web/Android/iOS code syntax; up to 60 hits are listed, with a count when there are more.
 - **Code syntax page** is a placeholder. The user wants to brainstorm its content first: don't add content until they have.
 - "Show all connections" has no hotkey and is off by default.
 
