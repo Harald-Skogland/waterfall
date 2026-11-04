@@ -53,3 +53,22 @@ test("web: full file wraps", () => {
   const t = CS.toText(CS.defLines(m, m.tokens.map(x => x.k), "web", { full: true }));
   assert.ok(t.startsWith(":root {")); assert.match(t, /\n\}\n\[data-theme="dark"\] \{\n/); assert.ok(t.trimEnd().endsWith("}"));
 });
+
+// ---------- Task 3: Android definitions ----------
+const A = (name, file, full = false) => CS.toText(CS.defLines(m, [key(name, "Alias")], "android", { full, file }));
+test("android: chain + ARGB", () => {
+  assert.match(CS.toText(CS.defLines(m, [key("grey/100", "Foundation")], "android", { file: "light" })), /<color name="ga_color_grey_100">#FF141414<\/color>/);
+  assert.match(A("text/body", "light"), /<color name="ga_color_alias_text_body">@color\/ga_color_grey_100<\/color>/);
+  assert.match(A("surface/overlay/overlay-hover", "light"), />#40330000</);
+  assert.match(A("overlay/light", "light"), />#916C6C6C</);
+});
+test("android: night file only holds tokens that change", () => {
+  assert.match(A("text/default/body", "night"), /<color name="ga_color_text_body">@color\/ga_color_grey_10<\/color>/);
+  assert.match(A("components/button/primary/surface", "night"), /ga_color_surface_button_primary">@color\/ga_color_surface_action</);
+  assert.equal(CS.toText(CS.defLines(m, [key("grey/100", "Foundation")], "android", { file: "night" })).includes("<color"), false);
+});
+test("android: opacity is baked", () => assert.match(A("miscellaneous/scrim", "light"), /ga_color_miscellaneous_overlay">#99141414</));
+test("android: full file wrapper", () => {
+  const t = CS.toText(CS.defLines(m, m.tokens.map(x => x.k), "android", { full: true, file: "light" }));
+  assert.ok(t.startsWith('<?xml version="1.0" encoding="utf-8"?>\n<resources>')); assert.ok(t.trimEnd().endsWith("</resources>"));
+});

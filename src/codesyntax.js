@@ -62,6 +62,17 @@
       return p.op != null ? "color-mix(in srgb, " + src + " " + p.op + "%, transparent)" : src;
     },
   };
+  const argb = rgba => "#" + rgba.slice(7, 9) + rgba.slice(1, 7); // "#RRGGBBAA" -> "#AARRGGBB"
+  const ANDROID = {
+    comment: s => "<!-- " + s + " -->",
+    line: (t, v) => '<color name="' + t.android + '">' + v + "</color>",
+    value: (model, p, dark, t) => {
+      if (p.raw) return argb(resolve(model, "#" + p.raw, dark));
+      // @color/ can't add opacity: bake the resolved color for this mode
+      if (p.op != null) return argb(resolve(model, dark ? t.D : t.L, dark));
+      return "@color/" + model.byKey[p.k].android;
+    },
+  };
   // lines for keys (kept in model order), grouped under "Tier · folder" comments
   function section(model, keys, P, dark, indent) {
     const want = new Set(keys), out = []; let last = null;
@@ -82,6 +93,10 @@
       const out = [{ k: null, text: WEB.comment("Light: paste into :root") }, ...section(model, keys, WEB, false, "")];
       if (darkOnes.length) out.push({ k: null, text: "" }, { k: null, text: WEB.comment('Dark: paste into [data-theme="dark"]') }, ...section(model, darkOnes, WEB, true, ""));
       return out;
+    }
+    if (platform === "android") {
+      const night = opts && opts.file === "night", lines = section(model, night ? darkOnes : keys, ANDROID, night, full ? "    " : "");
+      return full ? [{ k: null, text: '<?xml version="1.0" encoding="utf-8"?>' }, { k: null, text: "<resources>" }, ...lines, { k: null, text: "</resources>" }] : lines;
     }
     throw new Error("unknown platform " + platform);
   }
