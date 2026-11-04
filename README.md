@@ -42,7 +42,8 @@ Live page: https://harald-skogland.github.io/waterfall/
 src/template.html     page: CSS, markup and app script, with a /*DATA*/ marker
 src/data.js           snapshot of the variables (window.WATERFALL)
 scripts/build.py      inlines data.js into the template -> dist/index.html
-scripts/export-figma.js  read-only Figma export used to refresh data.js
+scripts/export-figma.js  read-only Figma export, one collection per call
+scripts/convert-export.js  turns the four exports into src/data.js
 dist/index.html       built, self-contained page (what gets published)
 CLAUDE.md             notes for Claude to resume work
 ```
@@ -57,4 +58,4 @@ Open `dist/index.html` in a browser, or publish it as an artifact.
 
 ## Refresh the data
 
-Run `scripts/export-figma.js` through the Figma MCP `use_figma` tool against file `oCjWQuQcYhos1Y9iW77TVs`, three times (`PART` = `FA`, `M1`, `M2`). Paste the results into `src/data.js` and rebuild. The full steps are in `CLAUDE.md`.
+Run `scripts/export-figma.js` through the Figma MCP `use_figma` tool against file `oCjWQuQcYhos1Y9iW77TVs`, four times (`PART` = `F`, `A`, `M1`, `M2`). Save the results as `F.txt`, `A.txt`, `M1.txt`, `M2.txt`, then run `node scripts/convert-export.js <folder>` to write `src/data.js`, and rebuild. The full steps are in `CLAUDE.md`.

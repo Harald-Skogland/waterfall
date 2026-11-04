@@ -23,13 +23,13 @@
 
 ## Refreshing the data from Figma
 1. Load the `figma-use` skill.
-2. Run `scripts/export-figma.js` with `use_figma` on `oCjWQuQcYhos1Y9iW77TVs`, three times, with `PART` set to `FA`, `M1` and `M2`. The tool caps returns at 48 KB.
-3. Rebuild `src/data.js` from the three results:
-   - shorten Mapped descriptions by cutting the "Light: … · Dark: …" endings;
-   - leave the generic-alias boilerplate descriptions empty;
-   - update `snapshot`.
-4. Check that every ref resolves:
-   `node -e "global.window={};require('./src/data.js');const d=window.WATERFALL;console.log(d.F.length,d.A.length,d.M.length)"`
+2. Run `scripts/export-figma.js` with `use_figma` on `oCjWQuQcYhos1Y9iW77TVs`, four times, with `PART` set to `F`, `A`, `M1` and `M2`.
+   - Each call reads one collection, variable by variable, by ID. **Don't go back to `getLocalVariablesAsync()` over the whole file**: on this file those heavy calls fail at random with "The connector's server returned an error".
+   - Only foundation, alias and mapped are read. `.admin`, `.responsive`, `.AG Grid adapter` and `corner radius` are ignored until the user says otherwise.
+3. Save the four results as `F.txt`, `A.txt`, `M1.txt`, `M2.txt` in one scratch folder.
+4. Run `node scripts/convert-export.js <folder> "Gaia UI Kit – Scarlet Playground · <date>"`.
+   - It resolves IDs to `F<i>` / `A<i>` / `M<i>` refs, keeps descriptions from the current `src/data.js` by name, writes `src/data.js`, and prints every resolved-color, code-syntax and name change.
+   - Descriptions for new tokens come in empty; fill them in by hand if needed.
 5. Build and publish.
 
 The export is read only. **Never change variables in Figma as part of work on this page.**
