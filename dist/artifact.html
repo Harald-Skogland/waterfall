@@ -545,11 +545,11 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
   // description, scope, hide from publishing, code syntax (Web, Android, iOS)
   function metaHtml(k) { const m = metaOf(k), none = '<span class="muted">None</span>';
     const sc = m.scopes ? m.scopes.split(",").map(x => `<span class="chip">${esc(SCOPE_LABEL[x] || x)}</span>`).join("") : none;
-    const cs = (label, v) => `<div class="csrow"><small>${label}</small><div>${v ? `<code>${esc(v)}</code><button class="copy" type="button" data-copy="${esc(v)}">Copy</button>` : none}</div></div>`;
+    const cs = (label, v, plat) => `<div class="csrow"><small>${label}</small><div>${v ? `<code>${esc(v)}</code><button class="copy" type="button" data-copy="${esc(v)}">Copy</button><button class="copy" type="button" data-view-code="${k}" data-platform="${plat}" title="Open this token on the Code syntax page">View</button>` : none}</div></div>`;
     return (k[0] === "F" ? "" : `<div class="kv"><div class="eyebrow">Description</div><div>${m.desc ? esc(m.desc) : none}</div></div>`)
       + `<div class="kv"><div class="eyebrow">Scope</div><div class="chips">${sc}</div></div>`
       + `<div class="kv"><div class="eyebrow">Hide from publishing</div><div>${m.hidden ? "Yes" : "No"}</div></div>`
-      + `<div class="kv"><div class="eyebrow">Code syntax</div><div class="cs">${cs("Web", m.web)}${cs("Android", m.android)}${cs("iOS", m.ios)}</div></div>`; }
+      + `<div class="kv"><div class="eyebrow">Code syntax</div><div class="cs">${cs("Web", m.web, "web")}${cs("Android", m.android, "android")}${cs("iOS", m.ios, "ios")}</div></div>`; }
   function renderTrace() { const el = $("#trace");
     if (!sel) { el.innerHTML = `<div><div class="eyebrow">Trace</div><p class="muted">Click any token in the waterfall. A foundation color lights up every branch it feeds; a mapped token lights up its route back to Foundation. The details show here.</p></div><div class="kv"><div class="eyebrow">In this snapshot</div><div>${T.F.length} foundation · ${T.A.length} alias · ${T.M.length} mapped</div></div>`; return; }
     const k = sel, t = k[0], r = row(k), parts = r[0].split("/"); const rt = route(k);
@@ -643,6 +643,17 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
   $("#cs-all").addEventListener("click", e => { const all = cs.model.tokens.map(t => t.k);
     csCopy(CSX.toText(cs.mode === "names" ? CSX.namesLines(cs.model, all, cs.platform) : CSX.defLines(cs.model, all, cs.platform, { full: true, file: cs.file })), e.currentTarget, "Copy all"); });
 
+  // details panel "View": open the token's folder on the Code syntax page, in Names mode, with its line highlighted
+  function openInCode(k, platform) {
+    const t = cs.model.byKey[k[0] === "D" ? "M" + k.slice(1) : k]; if (!t) return;
+    cs.platform = platform; cs.mode = "names";
+    try { localStorage.setItem("wf2-cs-platform", platform); localStorage.setItem("wf2-cs-mode", "names"); } catch (e) {}
+    $("#q").value = ""; cs.sel = { tier: t.tier, path: t.folder }; cs.hl = t.k;
+    const segs = t.folder ? t.folder.split("/") : [], skip = t.tier === "Components" ? 1 : 0;
+    cs.open.add(t.tier + "|"); for (let i = skip + 1; i <= segs.length; i++) cs.open.add(t.tier + "|" + segs.slice(0, i).join("/"));
+    if (view === "code") renderCode(); else location.hash = "code-syntax";
+  }
+
   // ---------- interaction ----------
   function select(k, scroll) { sel = k; applyFocus(); renderTrace();
     if (scroll && k) { const n = $(`#fall .node[data-k="${k}"]`); if (n) n.scrollIntoView({ block: "center", inline: "nearest" }); } }
@@ -652,6 +663,7 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
   window.addEventListener("hashchange", onHash);
   document.addEventListener("click", e => {
     const c = e.target.closest("[data-copy]"); if (c) { navigator.clipboard?.writeText(c.dataset.copy).then(() => { c.textContent = "Copied"; setTimeout(() => c.textContent = "Copy", 1200); }, () => {}); return; }
+    const vc = e.target.closest("[data-view-code]"); if (vc) { openInCode(vc.dataset.viewCode, vc.dataset.platform); return; }
     const k = e.target.closest("[data-k]"); if (!k) { if (!e.target.closest(".search")) $("#hits").hidden = true; return; }
     const fromFall = !!k.closest("#fall");
     if (view !== "waterfall") { location.hash = "waterfall"; setTimeout(() => select(k.dataset.k, true), 30); }
