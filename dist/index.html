@@ -154,6 +154,9 @@ button, input { font: inherit; color: inherit; }
 .prob header { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
 .prob p { margin: 0; color: var(--muted); max-width: 75ch; }
 .prob .feeds { max-height: none; overflow: visible; }
+.notes { border-left: 3px solid var(--flag-warn); background: var(--flag-warn-bg); border-radius: 0 6px 6px 0; padding: 8px 12px; max-width: 75ch; }
+.notes h3 { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: #141414; }
+.notes ul { margin: 0; padding-left: 18px; color: var(--ink); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; align-items: start; }
 .card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 10px 8px; display: grid; gap: 1px; min-width: 0; background: var(--panel); }
 .card h3 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: #141414; word-break: break-word; }
@@ -684,7 +687,9 @@ M: [
   // ---------- problems ----------
   function problems() { const P = [];
     const all = MK; P.push(["Mapped tokens that skip Alias", "crit", all.filter(k => flagsM[k].skip), "These point at a foundation color or a raw value in Light or Dark. Each needs its own alias to follow the tier rule."]);
-    P.push(["Dark = Light", "warn", all.filter(k => flagsM[k].same), "Dark points at the same source as Light, so these tokens do not change in Dark mode."]);
+    P.push(["Dark = Light", "warn", all.filter(k => flagsM[k].same), "Dark points at the same source as Light, so these tokens do not change in Dark mode.", [
+      "Utility red, orange, green and purple use the same values in Light and Dark.",
+      "F/color has been renamed to color-foundation, and A/color to color-alias."]]);
     const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);
     P.push(["Duplicate code syntax", "info", dup.flatMap(([, l]) => l), dup.length + " code syntax values are used by more than one variable: " + dup.map(([c]) => c).join(", ") + "."]);
     P.push(["Mapped tokens without code syntax", "info", all.filter(k => flagsM[k].nocs), "No WEB code syntax is set."]);
@@ -696,8 +701,8 @@ M: [
     // cards per folder (Alias and Mapped kept apart); duplicate code syntax gets one card per shared value instead
     const byFolder = keys => ["A", "M"].flatMap(t => groups(keys.filter(k => k[0] === t), false).map(g => card((t === "A" ? "Alias · " : "Mapped · ") + (g.path || "(root)"), g.items)));
     const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);
-    $("#v-problems").innerHTML = P.map(([t, lv, keys, txt]) => { const cards = !keys.length ? '<span class="muted">None</span>' : t === "Duplicate code syntax" ? dup.map(([c, l]) => card(c, l)).join("") : byFolder(keys).join("");
-      return `<section class="prob"><header><h2>${esc(t)}</h2><span class="flag ${lv}">${keys.length}</span></header><p>${esc(txt)}</p><div class="cards">${cards}</div></section>`; }).join(""); }
+    $("#v-problems").innerHTML = P.map(([t, lv, keys, txt, notes]) => { const cards = !keys.length ? '<span class="muted">None</span>' : t === "Duplicate code syntax" ? dup.map(([c, l]) => card(c, l)).join("") : byFolder(keys).join("");
+      return `<section class="prob"><header><h2>${esc(t)}</h2><span class="flag ${lv}">${keys.length}</span></header><p>${esc(txt)}</p>${notes ? `<div class="notes"><h3>Notes</h3><ul>${notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul></div>` : ""}<div class="cards">${cards}</div></section>`; }).join(""); }
 
   // ---------- interaction ----------
   function select(k, scroll) { sel = k; applyFocus(); renderTrace();
