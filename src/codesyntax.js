@@ -3,6 +3,8 @@
 // Input is window.WATERFALL; row layouts are documented in scripts/convert-export.js.
 (function (root) {
   const TIERS = ["Foundation", "Alias", "Mapped", "Components"];
+  // utility red/orange/green/purple: known Dark = Light (no Dark values yet). Their Dark entry is still printed, so it's there to change.
+  const KNOWN_DARK_SAME = /^(components\/)?utility\/(red|orange|green|purple)(-accent)?(\/|$)/;
   const parse = r => { if (!r) return null; if (r[0] === "#") return { raw: r.slice(1).toUpperCase() };
     const m = /^([FAM])(\d+)(?:@(\d+))?$/.exec(r); return m ? { k: m[1] + m[2], op: m[3] ? +m[3] : null } : null; };
   const stripVar = s => (s || "").replace(/^var\((.*)\)$/, "$1");
@@ -57,7 +59,7 @@
 
   // Mapped/Components tokens whose resolved Dark color differs from their resolved Light color
   function darkKeys(model) {
-    return model.tokens.filter(t => t.D != null && resolve(model, t.L, false) !== resolve(model, t.D, true)).map(t => t.k);
+    return model.tokens.filter(t => t.D != null && (KNOWN_DARK_SAME.test(t.name) || resolve(model, t.L, false) !== resolve(model, t.D, true))).map(t => t.k);
   }
 
   // ---------- Definitions ----------
@@ -104,7 +106,7 @@
   const IOS = {
     comment: s => "// " + s,
     line: (t, v) => "static let " + t.ios + " = " + v,
-    value: (model, p, dark, t) => t.D == null || t.D === t.L ? iosExpr(model, t.L, false)
+    value: (model, p, dark, t) => t.D == null || (t.D === t.L && !KNOWN_DARK_SAME.test(t.name)) ? iosExpr(model, t.L, false)
       : "Color(light: " + iosExpr(model, t.L, true) + ", dark: " + iosExpr(model, t.D, true) + ")",
   };
   // lines for keys (kept in model order), grouped under "Tier · folder" comments
@@ -154,6 +156,6 @@
     return Object.entries(by).filter(([, keys]) => keys.length > 1).map(([name, keys]) => ({ name, keys }));
   }
 
-  const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines, duplicates, matches, IOS_HELPERS };
+  const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines, duplicates, matches, IOS_HELPERS, KNOWN_DARK_SAME };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.CodeSyntax = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

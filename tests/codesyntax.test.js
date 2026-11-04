@@ -140,3 +140,13 @@ test("full files: every reference is defined", () => {
   const lets = new Set([...swift.matchAll(/static let (\w+) =/g)].map(x => x[1]));
   for (const [, ref] of swift.matchAll(/(?:Color\.|[(\s]\.)(gaColor\w+)/g)) assert.ok(lets.has(ref), "swift ref " + ref);
 });
+
+// ---------- Known Dark = Light utilities still get their Dark entry ----------
+test("known Dark=Light utilities are printed in the dark output", () => {
+  const k = key("utility/red", "Mapped"), c = key("components/utility/red/border");
+  assert.ok(CS.KNOWN_DARK_SAME.test("utility/red-accent") && CS.KNOWN_DARK_SAME.test("components/utility/purple/icon") && !CS.KNOWN_DARK_SAME.test("utility/teal"));
+  assert.ok(CS.darkKeys(m).includes(k) && CS.darkKeys(m).includes(c));
+  assert.match(CS.toText(CS.defLines(m, [k], "web", {})), /Dark[\s\S]*--ga-color-utility-red: var\(--ga-color-alias-utility-red\);/);
+  assert.match(CS.toText(CS.defLines(m, [c], "android", { file: "night" })), /ga_color_utility_red_border">@color\/ga_color_utility_red</);
+  assert.match(CS.toText(CS.defLines(m, [k], "ios", {})), /static let gaColorUtilityRed = Color\(light: \.gaColorAliasUtilityRed, dark: \.gaColorAliasUtilityRed\)/);
+});

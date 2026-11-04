@@ -319,7 +319,7 @@ button, input { font: inherit; color: inherit; }
   // Dark = Light: same source in both modes; a shared mapped source only counts if that source is itself Dark = Light
   const sameAt = (i, g = 0) => { const m = T.M[i]; if (m[1] !== m[2]) return false; const p = parse(m[1]); return !(p && p.t === "M") || (g < 12 && sameAt(p.i, g + 1)); };
   // utility red/orange/green/purple: known Dark = Light, listed under Notes instead of Problems
-  const UTIL_SAME = /^(components\/)?utility\/(red|orange|green|purple)(-accent)?(\/|$)/;
+  const UTIL_SAME = window.CodeSyntax.KNOWN_DARK_SAME; // one definition, shared with the Code syntax output
   const flagsM = {}; T.M.forEach((m, i) => flagsM["M" + i] = flagsM["D" + i] = { same: sameAt(i), skip: skips(m[1]) || skips(m[2]), nocs: !m[3], dup: !!m[3] && csMap[norm(m[3])].length > 1 });
 
   // ---------- columns ----------
