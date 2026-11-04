@@ -91,3 +91,9 @@ The export is read only. **Never change variables in Figma as part of work on th
 - A question is not a command: answer it, and change nothing unless asked.
 - Keep replies short. Report what changed and anything they need to check.
 - The related Figma printout of the waterfall lives on the page `_Color token waterfall` in the same Figma file. It is separate from this web page.
+
+## GitHub and hosting
+- **Repo:** https://github.com/Harald-Skogland/waterfall (public).
+- **No brand names on the public face.** The repo name, the description and README.md must not mention Gaia, Scarlet or Visma. The page and the rest of the project may.
+- **Hosting:** GitHub Pages at https://harald-skogland.github.io/waterfall/. `.github/workflows/pages.yml` builds `dist/` and deploys on every push to `main`, so pushing is enough to update the public page.
+- **The Claude artifact** (https://claude.ai/artifact/6eiHzXXDcqcrCyyFPAsk3X) is a separate copy. Republish it too when the user wants it in sync.

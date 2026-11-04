@@ -1,8 +1,8 @@
-# Scarlet Token Waterfall
+# Waterfall
 
-An interactive, left-to-right view of the color variables in the **Gaia UI Kit – Scarlet Playground** Figma file: Foundation → Alias → Mapped. Click any token to light up its route, read its details in a fixed side panel, and check the Problems page for tier-rule breaks.
+An interactive, left-to-right view of the color variables in a design-system Figma file: Foundation → Alias → Mapped. Click any token to light up its route, read its details in a fixed side panel, and check the Problems page for tier-rule breaks.
 
-Live page (private Claude artifact): https://claude.ai/artifact/6eiHzXXDcqcrCyyFPAsk3X
+Live page: https://harald-skogland.github.io/waterfall/
 
 ## What it shows
 
