@@ -73,6 +73,31 @@
       return "@color/" + model.byKey[p.k].android;
     },
   };
+  // iOS: SwiftUI Color extension (iOS 15+); helpers are only added to a full copy
+  const IOS_HELPERS = [
+    "extension Color {",
+    "  init(hex: UInt32, alpha: Double = 1) {",
+    "    self.init(.sRGB, red: Double((hex >> 16) & 0xFF) / 255, green: Double((hex >> 8) & 0xFF) / 255, blue: Double(hex & 0xFF) / 255, opacity: alpha)",
+    "  }",
+    "}",
+    "extension Color {",
+    "  init(light: Color, dark: Color) {",
+    "    self.init(UIColor { $0.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light) })",
+    "  }",
+    "}",
+  ].join("\n");
+  const hexExpr = raw => { const h = raw.length === 6 ? raw + "FF" : raw, a = Math.round(parseInt(h.slice(6), 16) / 255 * 100) / 100;
+    return "Color(hex: 0x" + h.slice(0, 6) + (a < 1 ? ", alpha: " + a : "") + ")"; };
+  // inner = inside Color(light:dark:), where members are written without the Color prefix
+  const iosExpr = (model, ref, inner) => { const p = parse(ref);
+    if (p.raw) return hexExpr(p.raw);
+    return (inner ? "." : "Color.") + model.byKey[p.k].ios + (p.op != null ? ".opacity(" + p.op / 100 + ")" : ""); };
+  const IOS = {
+    comment: s => "// " + s,
+    line: (t, v) => "static let " + t.ios + " = " + v,
+    value: (model, p, dark, t) => t.D == null || t.D === t.L ? iosExpr(model, t.L, false)
+      : "Color(light: " + iosExpr(model, t.L, true) + ", dark: " + iosExpr(model, t.D, true) + ")",
+  };
   // lines for keys (kept in model order), grouped under "Tier · folder" comments
   function section(model, keys, P, dark, indent) {
     const want = new Set(keys), out = []; let last = null;
@@ -98,9 +123,14 @@
       const night = opts && opts.file === "night", lines = section(model, night ? darkOnes : keys, ANDROID, night, full ? "    " : "");
       return full ? [{ k: null, text: '<?xml version="1.0" encoding="utf-8"?>' }, { k: null, text: "<resources>" }, ...lines, { k: null, text: "</resources>" }] : lines;
     }
+    if (platform === "ios") {
+      const lines = section(model, keys, IOS, false, full ? "  " : "");
+      return full ? [{ k: null, text: "import SwiftUI" }, { k: null, text: "" }, ...IOS_HELPERS.split("\n").map(text => ({ k: null, text })), { k: null, text: "" },
+        { k: null, text: "extension Color {" }, ...lines, { k: null, text: "}" }] : lines;
+    }
     throw new Error("unknown platform " + platform);
   }
 
-  const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines };
+  const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines, IOS_HELPERS };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.CodeSyntax = api;
 })(this);

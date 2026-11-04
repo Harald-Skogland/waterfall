@@ -72,3 +72,21 @@ test("android: full file wrapper", () => {
   const t = CS.toText(CS.defLines(m, m.tokens.map(x => x.k), "android", { full: true, file: "light" }));
   assert.ok(t.startsWith('<?xml version="1.0" encoding="utf-8"?>\n<resources>')); assert.ok(t.trimEnd().endsWith("</resources>"));
 });
+
+// ---------- Task 4: iOS definitions ----------
+const I = (name, full = false) => CS.toText(CS.defLines(m, [key(name, "Alias")], "ios", { full }));
+test("ios: foundation, alias, alpha", () => {
+  assert.match(CS.toText(CS.defLines(m, [key("grey/100", "Foundation")], "ios", {})), /static let gaColorGrey100 = Color\(hex: 0x141414\)/);
+  assert.match(I("text/body"), /static let gaColorAliasTextBody = Color\.gaColorGrey100/);
+  assert.match(I("overlay/light"), /static let gaColorAliasOverlayLight = Color\(hex: 0x6C6C6C, alpha: 0\.57\)/);
+});
+test("ios: light/dark and opacity", () => {
+  assert.match(I("text/default/body"), /static let gaColorTextBody = Color\(light: \.gaColorAliasTextBody, dark: \.gaColorGrey10\)/);
+  assert.match(I("components/button/primary/surface"), /static let gaColorSurfaceButtonPrimary = Color\.gaColorSurfaceAction$/m);
+  assert.match(I("miscellaneous/scrim"), /static let gaColorMiscellaneousOverlay = Color\.gaColorGrey100\.opacity\(0\.6\)/);
+});
+test("ios: helpers only in full", () => {
+  assert.equal(CS.toText(CS.defLines(m, [key("grey/100", "Foundation")], "ios", {})).includes("UIColor"), false);
+  const t = CS.toText(CS.defLines(m, m.tokens.map(x => x.k), "ios", { full: true }));
+  assert.ok(t.startsWith("import SwiftUI")); assert.equal(t.split("init(light:").length - 1, 1);
+});
