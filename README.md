@@ -20,7 +20,7 @@ Live page: https://harald-skogland.github.io/waterfall/
 - Clicking a mapped token highlights its route back to Foundation.
 - Lines that aren't on the route are hidden.
 - **Show all connections** draws every link when nothing is selected.
-- **Clear selection** clears it (`Esc`).
+- **Clear** clears it (`Esc`). `S` jumps to search.
 
 **Trace panel.** Fixed on the right. It shows the Light and Dark values, each route from Foundation down to the token, then the description, scope, whether it's hidden from publishing, code syntax for Web, Android and iOS (each with a copy button), and flags.
 
@@ -29,7 +29,9 @@ Live page: https://harald-skogland.github.io/waterfall/
 - The mouse wheel zooms; this can be turned off.
 - Click and drag to pan.
 
-**Problems** (hotkey `2`). Three checks, each with its tokens in cards by folder:
+**Code syntax** (hotkey `2`). Placeholder for now.
+
+**Problems** (hotkey `0`, far right in the toolbar). Three checks, each with its tokens in cards by folder:
 - Dark = Light
 - duplicate code syntax
 - missing code syntax

@@ -63,7 +63,8 @@ The export is read only. **Never change variables in Figma as part of work on th
 - With nothing selected, links are drawn only when **Show all connections** is ticked.
 
 **Hotkeys and storage**
-- Hotkeys: `1` Waterfall, `2` Problems, `3` Display Dark mode, `Esc` clears the selection. Hotkeys are ignored while typing in a field.
+- Hotkeys: `1` Waterfall, `2` Code syntax, `0` Problems, `3` Display Dark mode, `S` focuses search, `Esc` clears the selection. Hotkeys are ignored while typing in a field.
+- Views/hashes: `#waterfall`, `#code-syntax` (`#v-code`), `#problems`.
 - localStorage (wrapped in try/catch) remembers the mode (`wf2-mode`), zoom (`wf2-zoom`) and the wheel setting (`wf2-wheel`).
 
 ## Design decisions the user made (keep them)
@@ -91,7 +92,9 @@ The export is read only. **Never change variables in Figma as part of work on th
 - Row layouts in data.js (incl. scopes, hidden, Android/iOS) are documented in `scripts/convert-export.js`.
 
 **Controls**
-- Button labels carry their hotkey in the text: "Waterfall (1)", "Problems (2)", "Display Dark mode (3)", "Clear selection (Esc)".
+- Button labels carry their hotkey in the text: "Waterfall (1)", "Code syntax (2)", "Display Dark mode (3)", "Clear (Esc)", "Problems (0)"; the search placeholder is "Search (S)".
+- Header toolbar is three groups: left = Waterfall / Code syntax tabs + Display Dark mode; center = search (about 280 px), Clear, Show all connections; far right = Problems. Under 1200 px the center group moves to its own centered row.
+- **Code syntax page** is a placeholder. The user wants to brainstorm its content first: don't add content until they have.
 - "Show all connections" has no hotkey and is off by default.
 
 **Problems page**

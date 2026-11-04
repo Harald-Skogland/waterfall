@@ -24,7 +24,7 @@ html, body { height: 100%; }
 .page { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 16px; display: flex; flex-direction: column; gap: 14px; height: 100%; }
 .page > * { flex: none; }
 .stage { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w); gap: 16px; }
-#v-problems { flex: 1 1 auto; min-height: 0; overflow: auto; }
+#v-problems, #v-code { flex: 1 1 auto; min-height: 0; overflow: auto; }
 @media (max-width: 1100px) { :root { --panel-w: 300px; } }
 h1 { font: 500 32px/1.1 var(--f-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
 h2 { font: 500 19px/1.2 var(--f-display); margin: 0; }
@@ -34,12 +34,19 @@ code, .mono { font-family: var(--f-mono); font-size: 12px; }
 button, input { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-.bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+/* header toolbar: views + Dark mode left, search group centered, Problems far right */
+.bar { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; }
+.bar-l, .bar-c, .bar-r { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; min-width: 0; }
+.bar-c { justify-content: center; }
+.bar-r { justify-content: flex-end; }
+.bar-l, .bar-c { flex-wrap: nowrap; } .bar label.toggle, .clear { white-space: nowrap; }
+@media (max-width: 1200px) { .bar { grid-template-columns: 1fr auto; } .bar-c { grid-column: 1 / -1; grid-row: 2; } }
+@media (max-width: 640px) { .bar-l, .bar-c { flex-wrap: wrap; } }
 .tabs, .seg { display: inline-flex; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px; flex-wrap: wrap; }
 .tabs a, .seg button { border: 0; background: none; padding: 6px 12px; border-radius: 6px; color: var(--muted); text-decoration: none; cursor: pointer; font-weight: 500; }
 .tabs a[aria-current="page"], .seg button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
 .tabs .n { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 400; margin-left: 4px; }
-.search { position: relative; flex: 1 1 240px; min-width: 0; max-width: 420px; }
+.search { position: relative; flex: 0 1 280px; min-width: 160px; }
 .search input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
 .hits { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; right: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; max-height: 320px; overflow: auto; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
 .hits button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px; cursor: pointer; }
@@ -170,17 +177,26 @@ button, input { font: inherit; color: inherit; }
   </header>
 
   <div class="bar">
-    <nav class="tabs" id="tabs" aria-label="Views">
-      <a href="#waterfall" data-view="waterfall" aria-keyshortcuts="1">Waterfall (1)</a>
-      <a href="#problems" data-view="problems" aria-keyshortcuts="2">Problems (2)</a>
-    </nav>
-    <label class="toggle"><input type="checkbox" id="darkmode" aria-keyshortcuts="3"> Display Dark mode (3)</label>
-    <div class="search">
-      <input type="search" id="q" placeholder="Find a token, hex or code syntax" aria-label="Find a token" autocomplete="off">
-      <div class="hits" id="hits" hidden></div>
+    <div class="bar-l">
+      <nav class="tabs" id="tabs" aria-label="Views">
+        <a href="#waterfall" data-view="waterfall" aria-keyshortcuts="1">Waterfall (1)</a>
+        <a href="#code-syntax" data-view="code" aria-keyshortcuts="2">Code syntax (2)</a>
+      </nav>
+      <label class="toggle"><input type="checkbox" id="darkmode" aria-keyshortcuts="3"> Display Dark mode (3)</label>
     </div>
-    <button type="button" class="clear" id="clear" aria-keyshortcuts="Escape">Clear selection (Esc)</button>
-    <label class="toggle"><input type="checkbox" id="showall"> Show all connections</label>
+    <div class="bar-c">
+      <div class="search">
+        <input type="search" id="q" placeholder="Search (S)" aria-label="Search tokens, hex or code syntax" aria-keyshortcuts="S" autocomplete="off">
+        <div class="hits" id="hits" hidden></div>
+      </div>
+      <button type="button" class="clear" id="clear" aria-keyshortcuts="Escape">Clear (Esc)</button>
+      <label class="toggle"><input type="checkbox" id="showall"> Show all connections</label>
+    </div>
+    <div class="bar-r">
+      <nav class="tabs" aria-label="Problems">
+        <a href="#problems" data-view="problems" aria-keyshortcuts="0">Problems (0)</a>
+      </nav>
+    </div>
   </div>
 
   <div class="legend" id="legend"><span><i></i>Light source</span><span><i class="dash"></i>Dark source (Display Dark mode)</span><span><i class="hot"></i>Route of the selected token</span><span><b class="mk">F</b> Mapped token that skips Alias</span><span>Faded = not used further down</span></div>
@@ -203,6 +219,8 @@ button, input { font: inherit; color: inherit; }
     <aside class="trace" id="trace" aria-live="polite"></aside>
   </section>
   <section id="v-problems" class="problems" hidden></section>
+  <!-- Code syntax page: placeholder until its content is designed with the user -->
+  <section id="v-code" class="codepage" hidden><div class="prob"><h2>Code syntax</h2><p>This page is coming. Its content hasn't been designed yet.</p></div></section>
 </div>
 
 <script>
@@ -383,9 +401,9 @@ button, input { font: inherit; color: inherit; }
   // ---------- interaction ----------
   function select(k, scroll) { sel = k; applyFocus(); renderTrace();
     if (scroll && k) { const n = $(`#fall .node[data-k="${k}"]`); if (n) n.scrollIntoView({ block: "center", inline: "nearest" }); } }
-  function setView(v) { view = v; $("#v-waterfall").hidden = v !== "waterfall"; $("#v-problems").hidden = v !== "problems"; $("#legend").hidden = v !== "waterfall";
-    document.querySelectorAll("#tabs a").forEach(a => a.setAttribute("aria-current", a.dataset.view === v ? "page" : "false")); if (v === "waterfall") requestAnimationFrame(drawLinks); }
-  function onHash() { const h = location.hash.slice(1); setView(h === "problems" ? "problems" : "waterfall"); }
+  function setView(v) { view = v; $("#v-waterfall").hidden = v !== "waterfall"; $("#v-problems").hidden = v !== "problems"; $("#v-code").hidden = v !== "code"; $("#legend").hidden = v !== "waterfall";
+    document.querySelectorAll(".bar a[data-view]").forEach(a => a.setAttribute("aria-current", a.dataset.view === v ? "page" : "false")); if (v === "waterfall") requestAnimationFrame(drawLinks); }
+  function onHash() { const h = location.hash.slice(1); setView(h === "problems" ? "problems" : h === "code-syntax" ? "code" : "waterfall"); }
   window.addEventListener("hashchange", onHash);
   document.addEventListener("click", e => {
     const c = e.target.closest("[data-copy]"); if (c) { navigator.clipboard?.writeText(c.dataset.copy).then(() => { c.textContent = "Copied"; setTimeout(() => c.textContent = "Copy", 1200); }, () => {}); return; }
@@ -405,7 +423,9 @@ button, input { font: inherit; color: inherit; }
     if (e.key === "Escape") { $("#hits").hidden = true; if (document.activeElement === $("#q")) $("#q").blur(); select(null); return; }
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
     if (e.key === "1") { e.preventDefault(); location.hash = "waterfall"; }
-    else if (e.key === "2") { e.preventDefault(); location.hash = "problems"; }
+    else if (e.key === "2") { e.preventDefault(); location.hash = "code-syntax"; }
+    else if (e.key === "0") { e.preventDefault(); location.hash = "problems"; }
+    else if (e.key === "s" || e.key === "S") { e.preventDefault(); $("#q").focus(); $("#q").select(); }
     else if (e.key === "3") { e.preventDefault(); setDark(mode !== "dark"); } });
   const index = [...FK, ...AG, ...AM, ...MK].map(k => ({ k, hay: (nameOf(k) + " " + val[k].text + " " + (k[0] === "M" ? mDark[k].text + " " + row(k)[3] : k[0] === "A" ? row(k)[2] : "")).toLowerCase() }));
   $("#q").addEventListener("input", () => { const q = $("#q").value.trim().toLowerCase().replace(/^#/, ""); const box = $("#hits");
