@@ -348,7 +348,7 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
       const rl = [...rt.nodes].filter(x => x[0] === "M").length, rd = [...rt.nodes].filter(x => x[0] === "D").length;
       h += `<div class="kv"><div class="eyebrow">Feeds directly</div>${feedsHtml(k)}</div><div class="kv"><div class="eyebrow">Ends up in</div><div>${rl} mapped token${rl === 1 ? "" : "s"} in Light${mode === "dark" ? ` · ${rd} in Dark` : ""}</div></div>`;
       if (t === "A") { h += `<div class="kv"><div class="eyebrow">Code syntax</div><div>${r[2] ? `<code>${esc(r[2])}</code>` : '<span class="muted">None</span>'}</div></div>`; if (r[3]) h += `<div class="kv"><div class="eyebrow">Description</div><div>${esc(r[3])}</div></div>`; }
-      if (!used.has(k)) h += `<div class="flags"><span class="flag warn">not used by mapped</span></div>`;
+      if (!used.has(k)) h += `<div class="flags"><span class="flag note">not used by mapped</span></div>`;
     }
     el.innerHTML = h; el.scrollTop = 0; }
 
@@ -357,12 +357,12 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
   function problems() { const P = [], N = [];
     const all = MK; N.push(["Mapped tokens that skip Alias", "note", all.filter(k => flagsM[k].skip), "These point straight at a foundation color or a raw value in Light or Dark instead of an alias. Listed for reference; not treated as a problem."]);
     const UTIL_SAME = /^(components\/)?utility\/(red|orange|green|purple)(-accent)?(\/|$)/;
-    N.push(["Utility red, orange, green and purple use the same values in Light and Dark", "note", all.filter(k => UTIL_SAME.test(nameOf(k)) && flagsM[k].same), "A known inconsistency: these utility colors have no Dark values yet, so Dark is the same as Light. They are also counted under Dark = Light."]);
-    P.push(["Dark = Light", "warn", all.filter(k => flagsM[k].same), "Dark points at the same source as Light, so these tokens do not change in Dark mode."]);
+    N.push(["Utility red, orange, green and purple use the same values in Light and Dark", "note", all.filter(k => UTIL_SAME.test(nameOf(k)) && flagsM[k].same), "A known inconsistency: these utility colors have no Dark values yet, so Dark is the same as Light. They are not counted under Dark = Light."]);
+    P.push(["Dark = Light", "warn", all.filter(k => flagsM[k].same && !UTIL_SAME.test(nameOf(k))), "Dark points at the same source as Light, so these tokens do not change in Dark mode."]);
     const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);
     P.push(["Duplicate code syntax", "info", dup.flatMap(([, l]) => l), dup.length + " code syntax values are used by more than one variable: " + dup.map(([c]) => c).join(", ") + "."]);
     P.push(["Mapped tokens without code syntax", "info", all.filter(k => flagsM[k].nocs), "No WEB code syntax is set."]);
-    P.push(["Aliases not used by any mapped token", "warn", [...AG, ...AM].filter(k => !used.has(k)), "Nothing in Mapped reaches these, directly or through another alias."]);
+    N.push(["Aliases not used by any mapped token", "note", [...AG, ...AM].filter(k => !used.has(k)), "Nothing in Mapped reaches these, directly or through another alias."]);
     return [["Problems", P], ["Notes", N]]; }
   function renderProblems() { const G = problems();
     const item = k => `<button type="button" data-k="${k}" title="${esc(nameOf(k))}">${sw(val[k].css)}<span>${esc(nameOf(k).split("/").pop())}</span></button>`;
