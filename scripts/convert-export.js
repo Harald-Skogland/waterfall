@@ -28,10 +28,15 @@ require(path.join(root, "src/data.js"));
 const OLD = window.WATERFALL;
 const aDesc = Object.fromEntries(OLD.A.map(r => [r[0], r[3]])), mDesc = Object.fromEntries(OLD.M.map(r => [r[0], r[4]]));
 
+// Row formats in data.js:
+//   F: [name, "#hex", scopes, hidden, csAndroid, csIOS, csWeb]
+//   A: [name, ref, csWeb, description, scopes, hidden, csAndroid, csIOS]
+//   M: [name, Light ref, Dark ref, csWeb, description, scopes, hidden, csAndroid, csIOS]
+// (the first columns keep their old positions so the page code stays simple)
 const NEW = {
-  F: Fx.map(r => [r[1], "#" + r[2]]),
-  A: Ax.map(r => [r[1], ref(r[2]), r[3], aDesc[r[1]] ?? ""]),
-  M: Mx.map(r => [r[1], ref(r[2]), ref(r[3]), r[4], mDesc[r[1]] ?? ""]),
+  F: Fx.map(r => [r[1], "#" + r[2], r[3], r[4], r[6], r[7], r[5]]),
+  A: Ax.map(r => [r[1], ref(r[2]), r[5], aDesc[r[1]] ?? "", r[3], r[4], r[6], r[7]]),
+  M: Mx.map(r => [r[1], ref(r[2]), ref(r[3]), r[6], mDesc[r[1]] ?? "", r[4], r[5], r[7], r[8]]),
 };
 
 // resolved color of a ref; dark = follow mapped sources through their Dark value

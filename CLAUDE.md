@@ -13,6 +13,9 @@
   - `dist/artifact.html`: the same page without a skeleton. **Publish this one as the Claude artifact.**
 - Commit `dist/` after every build.
 
+## Local preview
+`.claude/launch.json` in `/Users/haraldskogland/claude-projects/navigation` has a `waterfall` entry: `python3 -m http.server 4175` serving `dist/`. Start it with the preview tool (`preview_start {name: "waterfall"}`) after building; the browser pane can't drive `file://` pages.
+
 ## Workflow for a change
 1. Edit `src/template.html`.
 2. Run `python3 scripts/build.py`.
@@ -77,6 +80,13 @@ The export is read only. **Never change variables in Figma as part of work on th
 - The trace panel sits fixed on the right, beside the waterfall pane and the same height as it.
 - The waterfall pane scrolls inside itself, both ways.
 - The panel moves below the waterfall only under 600 px.
+
+**Details (trace) panel**
+- Routes read top to bottom: Foundation first, the selected token last (bold, not a link). Raw values are not a route step; the hex sits under the swatch.
+- After the routes, in this order: Description, Scope (chips), Hide from publishing (Yes/No), Code syntax (Web, Android, iOS, each with Copy). For Foundation and Alias, Feeds directly and Ends up in follow.
+- Feeds directly is a one-column list; item text aligns top left and wraps.
+- Tags: "skips alias", "not used by mapped" and "Dark = Light (known)" (utility red/orange/green/purple) are neutral grey.
+- Row layouts in data.js (incl. scopes, hidden, Android/iOS) are documented in `scripts/convert-export.js`.
 
 **Controls**
 - Button labels carry their hotkey in the text: "Waterfall (1)", "Problems (2)", "Display Dark mode (3)", "Clear selection (Esc)".

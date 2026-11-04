@@ -125,8 +125,16 @@ button, input { font: inherit; color: inherit; }
 .step small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; }
 .lnk { color: var(--ink); text-decoration: none; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 0; cursor: pointer; text-align: left; word-break: break-word; }
 .lnk:hover { border-color: var(--ink); }
-.feeds { display: flex; flex-wrap: wrap; gap: 5px; }
-.feeds button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 3px 7px; font-size: 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.feeds { display: grid; gap: 4px; justify-items: stretch; }
+.feeds button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 4px 7px; font-size: 12px; cursor: pointer; display: flex; gap: 7px; align-items: flex-start; justify-content: flex-start; text-align: left; width: 100%; }
+.feeds button .sw { flex: none; margin-top: 1px; }
+.feeds button span { min-width: 0; word-break: break-word; }
+.step.cur span { font-weight: 600; word-break: break-word; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--sunk); color: var(--ink); }
+.cs { display: grid; gap: 6px; }
+.csrow small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; margin-bottom: 1px; }
+.csrow code { word-break: break-all; }
 .copy { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; margin-left: 6px; }
 .flags { display: flex; gap: 4px; flex-wrap: wrap; }
 .flag { font-size: 11px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; font-weight: 500; }
@@ -237,6 +245,8 @@ button, input { font: inherit; color: inherit; }
   const skips = r => { const p = parse(r); return !p || p.raw || p.t === "F"; };
   // Dark = Light: same source in both modes; a shared mapped source only counts if that source is itself Dark = Light
   const sameAt = (i, g = 0) => { const m = T.M[i]; if (m[1] !== m[2]) return false; const p = parse(m[1]); return !(p && p.t === "M") || (g < 12 && sameAt(p.i, g + 1)); };
+  // utility red/orange/green/purple: known Dark = Light, listed under Notes instead of Problems
+  const UTIL_SAME = /^(components\/)?utility\/(red|orange|green|purple)(-accent)?(\/|$)/;
   const flagsM = {}; T.M.forEach((m, i) => flagsM["M" + i] = flagsM["D" + i] = { same: sameAt(i), skip: skips(m[1]) || skips(m[2]), nocs: !m[3], dup: !!m[3] && csMap[norm(m[3])].length > 1 });
 
   // ---------- columns ----------
@@ -304,31 +314,47 @@ button, input { font: inherit; color: inherit; }
     r.es.forEach(ix => { const p = $("#links").querySelector(`path[data-e="${ix}"]`); if (p) p.classList.add("on"); }); }
 
   // ---------- trace panel ----------
-  function chainHtml(ref, title, dark) { const c = chain(ref, dark);
-    const st = c.steps.map(s => { if (typeof s !== "string") return `<div class="step">${sw(rgba(s.raw, c.op))}<div><small>Raw value</small><span class="hex">${hexText(s.raw, c.op)}</span></div></div>`;
-      return `<div class="step">${sw(val[s].css)}<div><small>${TIER[s[0]]}</small><button type="button" class="lnk" data-k="${s}">${esc(nameOf(s))}</button></div></div>`; }).join("");
-    return `<div class="kv"><div class="eyebrow">${title}</div><div class="chain">${st}</div><div class="hex">Resolves to ${c.text}</div></div>`; }
+  // tier label for a key: Components are mapped tokens under components/
+  const tierOf = k => k[0] === "F" ? "Foundation" : k[0] === "A" ? "Alias" : (nameOf(k).startsWith("components/") ? "Components" : "Mapped") + (k[0] === "D" ? " · Dark" : "");
+  // per-token metadata; row layouts are documented in scripts/convert-export.js
+  const metaOf = k => { const r = row(k), t = k[0];
+    if (t === "F") return { desc: "", scopes: r[2], hidden: r[3], web: r[6], android: r[4], ios: r[5] };
+    if (t === "A") return { desc: r[3], scopes: r[4], hidden: r[5], web: r[2], android: r[6], ios: r[7] };
+    return { desc: r[4], scopes: r[5], hidden: r[6], web: r[3], android: r[7], ios: r[8] }; };
+  const SCOPE_LABEL = { all: "All", fills: "All fills", frame: "Frame fill", shape: "Shape fill", text: "Text fill", stroke: "Stroke", effect: "Effect" };
+  // route listed top to bottom: Foundation first, the selected token last; raw values are not a step (the hex sits under the swatch)
+  function chainHtml(ref, title, dark, self) { const c = chain(ref, dark);
+    const keys = c.steps.filter(s => typeof s === "string").reverse(); if (self && keys[keys.length - 1] !== self) keys.push(self);
+    const st = keys.map(s => `<div class="step${s === self ? " cur" : ""}">${sw(val[s].css)}<div><small>${tierOf(s)}</small>${s === self ? `<span>${esc(nameOf(s))}</span>` : `<button type="button" class="lnk" data-k="${s}">${esc(nameOf(s))}</button>`}</div></div>`).join("");
+    return `<div class="kv"><div class="eyebrow">${title}</div><div class="chain">${st}</div></div>`; }
   function feedsHtml(k) { const list = edges.filter(e => e.from === k).map(e => e.to); const uniq = [...new Set(list)];
     if (!uniq.length) return `<span class="muted">Nothing references this.</span>`;
-    return `<div class="feeds">` + uniq.map(x => `<button type="button" data-k="${x}">${sw(val[x].css)}${x[0] === "D" ? "M" : x[0]} · ${esc(nameOf(x))}${x[0] === "D" ? " (Dark)" : ""}</button>`).join("") + `</div>`; }
-  const flagHtml = f => [f.skip && '<span class="flag note">skips alias</span>', f.same && '<span class="flag warn">Dark = Light</span>', f.dup && '<span class="flag info">dup code syntax</span>', f.nocs && '<span class="flag info">no code syntax</span>'].filter(Boolean).join("");
+    return `<div class="feeds">` + uniq.map(x => `<button type="button" data-k="${x}">${sw(val[x].css)}<span>${x[0] === "D" ? "M" : x[0]} · ${esc(nameOf(x))}${x[0] === "D" ? " (Dark)" : ""}</span></button>`).join("") + `</div>`; }
+  const flagHtml = (f, k) => [f.skip && '<span class="flag note">skips alias</span>', f.same && (UTIL_SAME.test(nameOf(k)) ? '<span class="flag note">Dark = Light (known)</span>' : '<span class="flag warn">Dark = Light</span>'), f.dup && '<span class="flag info">dup code syntax</span>', f.nocs && '<span class="flag info">no code syntax</span>'].filter(Boolean).join("");
+  // description, scope, hide from publishing, code syntax (Web, Android, iOS)
+  function metaHtml(k) { const m = metaOf(k), none = '<span class="muted">None</span>';
+    const sc = m.scopes ? m.scopes.split(",").map(x => `<span class="chip">${esc(SCOPE_LABEL[x] || x)}</span>`).join("") : none;
+    const cs = (label, v) => `<div class="csrow"><small>${label}</small><div>${v ? `<code>${esc(v)}</code><button class="copy" type="button" data-copy="${esc(v)}">Copy</button>` : none}</div></div>`;
+    return (k[0] === "F" ? "" : `<div class="kv"><div class="eyebrow">Description</div><div>${m.desc ? esc(m.desc) : none}</div></div>`)
+      + `<div class="kv"><div class="eyebrow">Scope</div><div class="chips">${sc}</div></div>`
+      + `<div class="kv"><div class="eyebrow">Hide from publishing</div><div>${m.hidden ? "Yes" : "No"}</div></div>`
+      + `<div class="kv"><div class="eyebrow">Code syntax</div><div class="cs">${cs("Web", m.web)}${cs("Android", m.android)}${cs("iOS", m.ios)}</div></div>`; }
   function renderTrace() { const el = $("#trace");
     if (!sel) { el.innerHTML = `<div><div class="eyebrow">Trace</div><p class="muted">Click any token in the waterfall. A foundation color lights up every branch it feeds; a mapped token lights up its route back to Foundation. The details show here.</p></div><div class="kv"><div class="eyebrow">In this snapshot</div><div>${T.F.length} foundation · ${T.A.length} alias · ${T.M.length} mapped</div></div>`; return; }
     const k = sel, t = k[0], r = row(k), parts = r[0].split("/"); const rt = route(k);
-    let h = `<div><div class="eyebrow">${TIER[t]}</div><div class="name">${esc(parts.pop())}</div><div class="path">${esc(parts.join("/"))}</div></div>`;
-    if (t === "M" || t === "D") { const f = flagsM[k], lk = "M" + k.slice(1);
+    let h = `<div><div class="eyebrow">${tierOf(k)}</div><div class="name">${esc(parts.pop())}</div><div class="path">${esc(parts.join("/"))}</div></div>`;
+    if (t === "M" || t === "D") { const f = flagsM[k], i = k.slice(1), lk = "M" + i, dk = "D" + i;
       h += `<div class="cols2"><div class="kv"><div class="eyebrow">Light</div>${sw(val[lk].css, "lg")}<span class="hex">${val[lk].text}</span></div><div class="kv"><div class="eyebrow">Dark</div><span><span class="dk lg">${sw(mDark[lk].css, "lg")}</span></span><span class="hex">${mDark[lk].text}</span></div></div>`;
-      const lr = chainHtml(r[1], "Light route"), dr = f.same ? `<div class="kv"><div class="eyebrow">Dark route</div><span class="same">Same as Light</span></div>` : chainHtml(r[2], "Dark route", true);
-      h += t === "D" ? (f.same ? chainHtml(r[2], "Dark route (same as Light)", true) : dr + lr) : lr + dr;
-      h += `<div class="kv"><div class="eyebrow">Code syntax</div><div>${r[3] ? `<code>${esc(r[3])}</code><button class="copy" type="button" data-copy="${esc(r[3])}">Copy</button>` : '<span class="muted">None</span>'}</div></div>`;
-      h += `<div class="kv"><div class="eyebrow">Description</div><div>${r[4] ? esc(r[4]) : '<span class="muted">None</span>'}</div></div>`;
-      const fl = flagHtml(f); if (fl) h += `<div class="flags">${fl}</div>`;
+      const lr = chainHtml(r[1], "Light route", false, lk), dr = f.same ? `<div class="kv"><div class="eyebrow">Dark route</div><span class="same">Same as Light</span></div>` : chainHtml(r[2], "Dark route", true, dk);
+      h += t === "D" ? (f.same ? chainHtml(r[2], "Dark route (same as Light)", true, dk) : dr + lr) : lr + dr;
+      h += metaHtml(k);
+      const fl = flagHtml(f, k); if (fl) h += `<div class="flags">${fl}</div>`;
     } else {
       h += `<div class="kv">${sw(val[k].css, "lg")}<span class="hex">${val[k].text}</span></div>`;
-      if (t === "A") h += chainHtml(k, "Route to Foundation");
+      if (t === "A") h += chainHtml(k, "Route", false, k);
+      h += metaHtml(k);
       const rl = [...rt.nodes].filter(x => x[0] === "M").length, rd = [...rt.nodes].filter(x => x[0] === "D").length;
       h += `<div class="kv"><div class="eyebrow">Feeds directly</div>${feedsHtml(k)}</div><div class="kv"><div class="eyebrow">Ends up in</div><div>${rl} mapped token${rl === 1 ? "" : "s"} in Light${mode === "dark" ? ` · ${rd} in Dark` : ""}</div></div>`;
-      if (t === "A") { h += `<div class="kv"><div class="eyebrow">Code syntax</div><div>${r[2] ? `<code>${esc(r[2])}</code>` : '<span class="muted">None</span>'}</div></div>`; if (r[3]) h += `<div class="kv"><div class="eyebrow">Description</div><div>${esc(r[3])}</div></div>`; }
       if (!used.has(k)) h += `<div class="flags"><span class="flag note">not used by mapped</span></div>`;
     }
     el.innerHTML = h; el.scrollTop = 0; }
@@ -337,7 +363,6 @@ button, input { font: inherit; color: inherit; }
   // Problems page: two groups, Problems first, then Notes (listed for reference, not issues)
   function problems() { const P = [], N = [];
     const all = MK; N.push(["Mapped tokens that skip Alias", "note", all.filter(k => flagsM[k].skip), "These point straight at a foundation color or a raw value in Light or Dark instead of an alias. Listed for reference; not treated as a problem."]);
-    const UTIL_SAME = /^(components\/)?utility\/(red|orange|green|purple)(-accent)?(\/|$)/;
     N.push(["Utility red, orange, green and purple use the same values in Light and Dark", "note", all.filter(k => UTIL_SAME.test(nameOf(k)) && flagsM[k].same), "A known inconsistency: these utility colors have no Dark values yet, so Dark is the same as Light. They are not counted under Dark = Light."]);
     P.push(["Dark = Light", "warn", all.filter(k => flagsM[k].same && !UTIL_SAME.test(nameOf(k))), "Dark points at the same source as Light, so these tokens do not change in Dark mode."]);
     const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);

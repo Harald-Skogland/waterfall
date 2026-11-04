@@ -22,7 +22,7 @@ Live page: https://harald-skogland.github.io/waterfall/
 - **Show all connections** draws every link when nothing is selected.
 - **Clear selection** clears it (`Esc`).
 
-**Trace panel.** Fixed on the right. It shows the Light and Dark values, each route step by step, code syntax with a copy button, the description and flags.
+**Trace panel.** Fixed on the right. It shows the Light and Dark values, each route from Foundation down to the token, then the description, scope, whether it's hidden from publishing, code syntax for Web, Android and iOS (each with a copy button), and flags.
 
 **Zoom and pan.**
 - Use − / + / Fit / 100% in the bottom-right corner of the pane.
