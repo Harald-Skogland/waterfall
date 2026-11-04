@@ -688,8 +688,7 @@ M: [
   function problems() { const P = [];
     const all = MK; P.push(["Mapped tokens that skip Alias", "crit", all.filter(k => flagsM[k].skip), "These point at a foundation color or a raw value in Light or Dark. Each needs its own alias to follow the tier rule."]);
     P.push(["Dark = Light", "warn", all.filter(k => flagsM[k].same), "Dark points at the same source as Light, so these tokens do not change in Dark mode.", [
-      "Utility red, orange, green and purple use the same values in Light and Dark.",
-      "F/color has been renamed to color-foundation, and A/color to color-alias."]]);
+      "Utility red, orange, green and purple use the same values in Light and Dark."]]);
     const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);
     P.push(["Duplicate code syntax", "info", dup.flatMap(([, l]) => l), dup.length + " code syntax values are used by more than one variable: " + dup.map(([c]) => c).join(", ") + "."]);
     P.push(["Mapped tokens without code syntax", "info", all.filter(k => flagsM[k].nocs), "No WEB code syntax is set."]);
