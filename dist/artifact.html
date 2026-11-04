@@ -90,7 +90,7 @@ button, input { font: inherit; color: inherit; }
 .fall.focus .node .nm { opacity: .3; }
 .fall.focus .node.on .nm { opacity: 1; color: var(--ink); }
 .fall.focus .node.sel { background: var(--hot-soft); box-shadow: inset 0 0 0 1px var(--hot); }
-.node .mk { font-size: 10px; color: var(--flag-crit); font-weight: 600; }
+.node .mk { font-size: 10px; color: var(--muted); font-weight: 600; }
 /* token names: a softer ink on white; selected route goes back to full ink */
 .fall { --node-ink: #7A6E6D; }
 .col:not(.darkcol) .grp { color: #141414; } /* folder headers: grey/100 */
@@ -133,6 +133,10 @@ button, input { font: inherit; color: inherit; }
 .flag.warn { background: var(--flag-warn-bg); color: var(--flag-warn); }
 .flag.crit { background: var(--flag-crit-bg); color: var(--flag-crit); }
 .flag.info { background: var(--flag-info-bg); color: var(--flag-info); }
+.flag.note { background: var(--sunk); color: var(--muted); }
+.pgroup { display: grid; gap: 14px; }
+.pgroup + .pgroup { margin-top: 18px; }
+.pghead { font: 600 24px/1.2 var(--f-display); color: #141414; }
 .muted { color: var(--muted); }
 .same { color: var(--muted); font-style: italic; }
 
@@ -316,7 +320,7 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
   function feedsHtml(k) { const list = edges.filter(e => e.from === k).map(e => e.to); const uniq = [...new Set(list)];
     if (!uniq.length) return `<span class="muted">Nothing references this.</span>`;
     return `<div class="feeds">` + uniq.map(x => `<button type="button" data-k="${x}">${sw(val[x].css)}${x[0] === "D" ? "M" : x[0]} · ${esc(nameOf(x))}${x[0] === "D" ? " (Dark)" : ""}</button>`).join("") + `</div>`; }
-  const flagHtml = f => [f.skip && '<span class="flag crit">skips alias</span>', f.same && '<span class="flag warn">Dark = Light</span>', f.dup && '<span class="flag info">dup code syntax</span>', f.nocs && '<span class="flag info">no code syntax</span>'].filter(Boolean).join("");
+  const flagHtml = f => [f.skip && '<span class="flag note">skips alias</span>', f.same && '<span class="flag warn">Dark = Light</span>', f.dup && '<span class="flag info">dup code syntax</span>', f.nocs && '<span class="flag info">no code syntax</span>'].filter(Boolean).join("");
   function renderTrace() { const el = $("#trace");
     if (!sel) { el.innerHTML = `<div><div class="eyebrow">Trace</div><p class="muted">Click any token in the waterfall. A foundation color lights up every branch it feeds; a mapped token lights up its route back to Foundation. The details show here.</p></div><div class="kv"><div class="eyebrow">In this snapshot</div><div>${T.F.length} foundation · ${T.A.length} alias · ${T.M.length} mapped</div></div>`; return; }
     const k = sel, t = k[0], r = row(k), parts = r[0].split("/"); const rt = route(k);
@@ -339,23 +343,25 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
     el.innerHTML = h; el.scrollTop = 0; }
 
   // ---------- problems ----------
-  function problems() { const P = [];
-    const all = MK; P.push(["Mapped tokens that skip Alias", "crit", all.filter(k => flagsM[k].skip), "These point at a foundation color or a raw value in Light or Dark. Each needs its own alias to follow the tier rule."]);
+  // Problems page: two groups, Problems first, then Notes (listed for reference, not issues)
+  function problems() { const P = [], N = [];
+    const all = MK; N.push(["Mapped tokens that skip Alias", "note", all.filter(k => flagsM[k].skip), "These point straight at a foundation color or a raw value in Light or Dark instead of an alias. Listed for reference; not treated as a problem."]);
     P.push(["Dark = Light", "warn", all.filter(k => flagsM[k].same), "Dark points at the same source as Light, so these tokens do not change in Dark mode.", [
       "Utility red, orange, green and purple use the same values in Light and Dark."]]);
     const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);
     P.push(["Duplicate code syntax", "info", dup.flatMap(([, l]) => l), dup.length + " code syntax values are used by more than one variable: " + dup.map(([c]) => c).join(", ") + "."]);
     P.push(["Mapped tokens without code syntax", "info", all.filter(k => flagsM[k].nocs), "No WEB code syntax is set."]);
     P.push(["Aliases not used by any mapped token", "warn", [...AG, ...AM].filter(k => !used.has(k)), "Nothing in Mapped reaches these, directly or through another alias."]);
-    return P; }
-  function renderProblems() { const P = problems();
+    return [["Problems", P], ["Notes", N]]; }
+  function renderProblems() { const G = problems();
     const item = k => `<button type="button" data-k="${k}" title="${esc(nameOf(k))}">${sw(val[k].css)}<span>${esc(nameOf(k).split("/").pop())}</span></button>`;
     const card = (title, keys) => `<div class="card"><h3 title="${esc(title)}">${esc(title)}</h3>${keys.map(item).join("")}</div>`;
     // cards per folder (Alias and Mapped kept apart); duplicate code syntax gets one card per shared value instead
     const byFolder = keys => ["A", "M"].flatMap(t => groups(keys.filter(k => k[0] === t), false).map(g => card((t === "A" ? "Alias · " : "Mapped · ") + (g.path || "(root)"), g.items)));
     const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);
-    $("#v-problems").innerHTML = P.map(([t, lv, keys, txt, notes]) => { const cards = !keys.length ? '<span class="muted">None</span>' : t === "Duplicate code syntax" ? dup.map(([c, l]) => card(c, l)).join("") : byFolder(keys).join("");
-      return `<section class="prob"><header><h2>${esc(t)}</h2><span class="flag ${lv}">${keys.length}</span></header><p>${esc(txt)}</p>${notes ? `<div class="notes"><h3>Notes</h3><ul>${notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul></div>` : ""}<div class="cards">${cards}</div></section>`; }).join(""); }
+    const section = ([t, lv, keys, txt, notes]) => { const cards = !keys.length ? '<span class="muted">None</span>' : t === "Duplicate code syntax" ? dup.map(([c, l]) => card(c, l)).join("") : byFolder(keys).join("");
+      return `<section class="prob"><header><h2>${esc(t)}</h2><span class="flag ${lv}">${keys.length}</span></header><p>${esc(txt)}</p>${notes ? `<div class="notes"><h3>Notes</h3><ul>${notes.map(n => `<li>${esc(n)}</li>`).join("")}</ul></div>` : ""}<div class="cards">${cards}</div></section>`; };
+    $("#v-problems").innerHTML = G.map(([title, list]) => `<div class="pgroup"><h2 class="pghead">${esc(title)}</h2>${list.map(section).join("")}</div>`).join(""); }
 
   // ---------- interaction ----------
   function select(k, scroll) { sel = k; applyFocus(); renderTrace();

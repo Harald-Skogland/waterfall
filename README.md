@@ -29,12 +29,13 @@ Live page: https://harald-skogland.github.io/waterfall/
 - The mouse wheel zooms; this can be turned off.
 - Click and drag to pan.
 
-**Problems** (hotkey `2`). Five checks, each with its tokens in cards by folder:
-- mapped tokens that skip Alias
+**Problems** (hotkey `2`). Four checks, each with its tokens in cards by folder:
 - Dark = Light
 - duplicate code syntax
 - missing code syntax
 - aliases no mapped token uses
+
+A **Notes** group below lists, for reference only, mapped tokens that skip Alias.
 
 ## Project layout
 
