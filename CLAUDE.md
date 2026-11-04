@@ -7,6 +7,7 @@
 
 ## Files
 - `src/template.html`: the whole page (CSS tokens, markup, app script) with a `/*DATA*/` marker. **Edit this, not dist.**
+- `src/codesyntax.js`: the pure generator behind the Code syntax page (`buildModel`, `resolve`, `namesLines`, `defLines`, `darkKeys`, `duplicates`, `toText`). It has no DOM. The build inlines it at the `/*CODESYNTAX*/` marker. Tests: `node --test tests/*.test.js` (run before building).
 - `src/data.js`: `window.WATERFALL = { snapshot, F, A, M }`. The row formats are documented at the top of `scripts/export-figma.js`.
 - `scripts/build.py`: run `python3 scripts/build.py` to produce two files.
   - `dist/index.html`: the standalone page for GitHub Pages, with a doctype, charset and base styles. The page needs `[hidden]{display:none!important}` from that base.
@@ -18,7 +19,7 @@
 
 ## Workflow for a change
 1. Edit `src/template.html`.
-2. Run `python3 scripts/build.py`.
+2. Run `node --test tests/*.test.js`, then `python3 scripts/build.py`.
 3. Syntax-check the script:
    `node -e "const s=require('fs').readFileSync('dist/index.html','utf8');new Function(s.split('<script>')[1].split('</script>')[0]);console.log('ok')"`
 4. Publish `dist/artifact.html` with the Artifact tool, passing `url: https://claude.ai/artifact/6eiHzXXDcqcrCyyFPAsk3X`. From a new conversation, read the artifact first.
@@ -95,7 +96,14 @@ The export is read only. **Never change variables in Figma as part of work on th
 - Button labels carry their hotkey in the text: "Waterfall (1)", "Code syntax (2)", "Display Dark mode (3)", "Clear (Esc)", "Problems (0)"; the search placeholder is "Search (S)".
 - Header toolbar is three groups: left = Waterfall / Code syntax tabs + Display Dark mode; center = search (about 280 px), Clear, Show all connections; far right = Problems. Under 1200 px the center group moves to its own centered row.
 - Search matches every typed word in any order (AND), across name, Light/Dark hex and Web/Android/iOS code syntax; up to 60 hits are listed, with a count when there are more.
-- **Code syntax page** is a placeholder. The user wants to brainstorm its content first: don't add content until they have.
+- **Code syntax page** (`#code-syntax`):
+  - Folder tree on the left, code preview on the right.
+  - Toolbar: Web / Android / iOS, Names / Definitions, and Copy all. In Android Definitions, a `values/colors.xml` / `values-night/colors.xml` toggle.
+  - Click a line to copy that token; Copy folder copies the preview. Partial copies are bare lines; only Copy all is a full file.
+  - Search (S) filters the tree on this page.
+  - localStorage keys `wf2-cs-platform` and `wf2-cs-mode`.
+  - Design and plan: `docs/superpowers/specs/2026-11-04-code-syntax-page-design.md` and `docs/superpowers/plans/2026-11-04-code-syntax-page.md`.
+- Details panel: each code syntax row has Copy and **View**. View opens the token's folder on the Code syntax page, in Names mode, with its line highlighted (`openInCode(k, platform)`).
 - "Show all connections" has no hotkey and is off by default.
 
 **Problems page**

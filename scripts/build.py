@@ -1,4 +1,4 @@
-"""Build the page by inlining src/data.js into src/template.html.
+"""Build the page by inlining src/data.js and src/codesyntax.js into src/template.html.
 
 Usage:  python3 scripts/build.py
 
@@ -17,7 +17,11 @@ data = (ROOT / "src" / "data.js").read_text()
 if "/*DATA*/" not in template:
     raise SystemExit("src/template.html is missing the /*DATA*/ marker")
 
-page = template.replace("/*DATA*/", data, 1)
+codesyntax = (ROOT / "src" / "codesyntax.js").read_text()
+if "/*CODESYNTAX*/" not in template:
+    raise SystemExit("src/template.html is missing the /*CODESYNTAX*/ marker")
+
+page = template.replace("/*DATA*/", data, 1).replace("/*CODESYNTAX*/", codesyntax, 1)
 
 # Same skeleton and reset the artifact host provides, so both builds look alike.
 SKELETON_HEAD = """<!doctype html>

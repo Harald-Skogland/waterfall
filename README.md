@@ -29,7 +29,7 @@ Live page: https://harald-skogland.github.io/waterfall/
 - The mouse wheel zooms; this can be turned off.
 - Click and drag to pan.
 
-**Code syntax** (hotkey `2`). Placeholder for now.
+**Code syntax** (hotkey `2`). Pick Web, Android or iOS, and Names (to use in components) or Definitions (a theme file that keeps the Foundation → Alias → Mapped chain). Pick a tier or folder in the tree, then copy one line, the folder, or everything. The details panel's **View** button jumps here.
 
 **Problems** (hotkey `0`, far right in the toolbar). Three checks, each with its tokens in cards by folder:
 - Dark = Light
@@ -43,7 +43,9 @@ A **Notes** group below lists, for reference only, mapped tokens that skip Alias
 ```
 src/template.html     page: CSS, markup and app script, with a /*DATA*/ marker
 src/data.js           snapshot of the variables (window.WATERFALL)
-scripts/build.py      inlines data.js into the template -> dist/index.html
+src/codesyntax.js     code syntax generator (pure, unit-tested)
+tests/                node --test tests/*.test.js
+scripts/build.py      inlines data.js and codesyntax.js into the template -> dist/index.html
 scripts/export-figma.js  read-only Figma export, one collection per call
 scripts/convert-export.js  turns the four exports into src/data.js
 dist/index.html       built, self-contained page (what gets published)
