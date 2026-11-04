@@ -40,9 +40,18 @@
   }
 
   const nameFor = (t, platform) => platform === "web" ? t.web : platform === "android" ? t.android : t.ios;
+  // names for use in code, grouped under "Tier · folder" comments in the platform's comment style
   function namesLines(model, keys, platform) {
-    return keys.map(k => { const t = model.byKey[k], n = nameFor(t, platform);
-      return { k, text: platform === "web" ? "var(" + n + ")" : platform === "android" ? "R.color." + n : "." + n }; });
+    const want = new Set(keys), out = []; let last = null;
+    const comment = s => platform === "web" ? "/* " + s + " */" : "// " + s;
+    for (const t of model.tokens) {
+      if (!want.has(t.k)) continue;
+      const head = t.tier + " · " + (t.folder || "(root)");
+      if (head !== last) { out.push({ k: null, text: comment(head) }); last = head; }
+      const n = nameFor(t, platform);
+      out.push({ k: t.k, text: platform === "web" ? "var(" + n + ")" : platform === "android" ? "R.color." + n : "." + n });
+    }
+    return out;
   }
   const toText = lines => lines.map(l => l.text).join("\n");
 
@@ -82,11 +91,11 @@
     "}",
     "extension Color {",
     "  init(light: Color, dark: Color) {",
-    "    self.init(UIColor { $0.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light) })",
+    "    self.init(UIColor { t in (t.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)).resolvedColor(with: t) })",
     "  }",
     "}",
   ].join("\n");
-  const hexExpr = raw => { const h = raw.length === 6 ? raw + "FF" : raw, a = Math.round(parseInt(h.slice(6), 16) / 255 * 100) / 100;
+  const hexExpr = raw => { const h = raw.length === 6 ? raw + "FF" : raw, a = Math.round(parseInt(h.slice(6), 16) / 255 * 1000) / 1000;
     return "Color(hex: 0x" + h.slice(0, 6) + (a < 1 ? ", alpha: " + a : "") + ")"; };
   // inner = inside Color(light:dark:), where members are written without the Color prefix
   const iosExpr = (model, ref, inner) => { const p = parse(ref);
@@ -147,4 +156,4 @@
 
   const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines, duplicates, matches, IOS_HELPERS };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.CodeSyntax = api;
-})(this);
+})(typeof globalThis !== "undefined" ? globalThis : this);

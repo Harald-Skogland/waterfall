@@ -1,5 +1,5 @@
 // Unit tests for src/codesyntax.js against the real snapshot in src/data.js.
-// Run: node --test tests/
+// Run: node --test tests/*.test.js
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("path");
@@ -27,10 +27,10 @@ test("resolve light/dark", () => {
 });
 
 test("names per platform", () => {
-  const k = [key("text/default/body")];
-  assert.equal(CS.toText(CS.namesLines(m, k, "web")), "var(--ga-color-text-body)");
-  assert.equal(CS.toText(CS.namesLines(m, k, "android")), "R.color.ga_color_text_body");
-  assert.equal(CS.toText(CS.namesLines(m, k, "ios")), ".gaColorTextBody");
+  const k = [key("text/default/body")], only = l => CS.toText(l.filter(x => x.k));
+  assert.equal(only(CS.namesLines(m, k, "web")), "var(--ga-color-text-body)");
+  assert.equal(only(CS.namesLines(m, k, "android")), "R.color.ga_color_text_body");
+  assert.equal(only(CS.namesLines(m, k, "ios")), ".gaColorTextBody");
 });
 
 // ---------- Task 2: Web definitions ----------
@@ -78,7 +78,7 @@ const I = (name, full = false) => CS.toText(CS.defLines(m, [key(name, "Alias")],
 test("ios: foundation, alias, alpha", () => {
   assert.match(CS.toText(CS.defLines(m, [key("grey/100", "Foundation")], "ios", {})), /static let gaColorGrey100 = Color\(hex: 0x141414\)/);
   assert.match(I("text/body"), /static let gaColorAliasTextBody = Color\.gaColorGrey100/);
-  assert.match(I("overlay/light"), /static let gaColorAliasOverlayLight = Color\(hex: 0x6C6C6C, alpha: 0\.57\)/);
+  assert.match(I("overlay/light"), /static let gaColorAliasOverlayLight = Color\(hex: 0x6C6C6C, alpha: 0\.569\)/);
 });
 test("ios: light/dark and opacity", () => {
   assert.match(I("text/default/body"), /static let gaColorTextBody = Color\(light: \.gaColorAliasTextBody, dark: \.gaColorGrey10\)/);
@@ -105,4 +105,38 @@ test("matches: hex (with or without #) and code syntax", () => {
   assert.ok(CS.matches(m, grey, ["grey_100"]));
   assert.ok(CS.matches(m, m.byKey[key("text/default/body")], ["ececec"]));  // its Dark value
   assert.equal(CS.matches(m, grey, ["zzz"]), false);
+});
+
+// ---------- Minor fixes ----------
+test("names: folder headers in each platform's comment style", () => {
+  const ks = [key("text/default/body"), key("grey/100", "Foundation")];
+  const w = CS.namesLines(m, ks, "web"), a = CS.namesLines(m, ks, "android"), i = CS.namesLines(m, ks, "ios");
+  assert.deepEqual(w.filter(l => !l.k).map(l => l.text), ["/* Foundation · grey */", "/* Mapped · text/default */"]);
+  assert.equal(a.find(l => !l.k).text, "// Foundation · grey");
+  assert.equal(i.find(l => !l.k).text, "// Foundation · grey");
+});
+test("ios: alpha to 3 decimals", () => assert.match(I("surface/overlay/overlay-disabled"), /alpha: 0\.698\)/));
+test("ios: Light/Dark helper resolves the chosen color for the trait", () => assert.match(CS.IOS_HELPERS, /\.resolvedColor\(with: t\)/));
+test("dark output: full web dark block and android night file", () => {
+  const all = m.tokens.map(x => x.k), web = CS.toText(CS.defLines(m, all, "web", { full: true }));
+  const dark = web.slice(web.indexOf('[data-theme="dark"]'));
+  assert.match(dark, /--ga-color-surface-button-primary: var\(--ga-color-surface-action\);/);
+  assert.equal(dark.includes("--ga-color-miscellaneous-overlay:"), false);  // scrim: same in both modes
+  assert.equal(dark.includes("--ga-color-surface-overlay-hover:"), false);
+  const night = CS.toText(CS.defLines(m, all, "android", { full: true, file: "night" }));
+  assert.match(night, /ga_color_surface_button_primary">@color\/ga_color_surface_action</);
+  assert.equal(night.includes("ga_color_miscellaneous_overlay"), false);
+});
+test("full files: every reference is defined", () => {
+  const all = m.tokens.map(x => x.k);
+  const css = CS.toText(CS.defLines(m, all, "web", { full: true }));
+  const declared = new Set([...css.matchAll(/^\s*(--[\w-]+):/gm)].map(x => x[1]));
+  for (const [, ref] of css.matchAll(/var\((--[\w-]+)\)/g)) assert.ok(declared.has(ref), "css ref " + ref);
+  for (const line of css.split("\n")) assert.match(line, /^(:root \{|\[data-theme="dark"\] \{|\}|  \/\* .* \*\/|  --[\w-]+: [^;]+;)$/, "css line: " + line);
+  const light = CS.toText(CS.defLines(m, all, "android", { full: true, file: "light" }));
+  const names = new Set([...light.matchAll(/<color name="(\w+)">/g)].map(x => x[1]));
+  for (const f of ["light", "night"]) for (const [, ref] of CS.toText(CS.defLines(m, all, "android", { full: true, file: f })).matchAll(/@color\/(\w+)/g)) assert.ok(names.has(ref), f + " ref " + ref);
+  const swift = CS.toText(CS.defLines(m, all, "ios", { full: true }));
+  const lets = new Set([...swift.matchAll(/static let (\w+) =/g)].map(x => x[1]));
+  for (const [, ref] of swift.matchAll(/(?:Color\.|[(\s]\.)(gaColor\w+)/g)) assert.ok(lets.has(ref), "swift ref " + ref);
 });

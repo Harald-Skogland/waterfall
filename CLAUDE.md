@@ -100,6 +100,9 @@ The export is read only. **Never change variables in Figma as part of work on th
   - Folder tree on the left, code preview on the right.
   - Toolbar: Web / Android / iOS, Names / Definitions, and Copy all. In Android Definitions, a `values/colors.xml` / `values-night/colors.xml` toggle.
   - Click a line to copy that token; Copy folder copies the preview. Partial copies are bare lines; only Copy all is a full file.
+  - **Whole theme** (top of the tree) previews exactly what Copy all copies (full file, unfiltered); its header button reads Copy all.
+  - The code pane is IDE style and always dark (light text on `#141414`, green comments, blue token names), whatever the page theme.
+  - Names output carries folder comment headers too (`/* … */` on Web, `// …` on Android/iOS).
   - Search (S) filters the tree on this page.
   - localStorage keys `wf2-cs-platform` and `wf2-cs-mode`.
   - Design and plan: `docs/superpowers/specs/2026-11-04-code-syntax-page-design.md` and `docs/superpowers/plans/2026-11-04-code-syntax-page.md`.

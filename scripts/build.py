@@ -21,7 +21,8 @@ codesyntax = (ROOT / "src" / "codesyntax.js").read_text()
 if "/*CODESYNTAX*/" not in template:
     raise SystemExit("src/template.html is missing the /*CODESYNTAX*/ marker")
 
-page = template.replace("/*DATA*/", data, 1).replace("/*CODESYNTAX*/", codesyntax, 1)
+# code first: data.js is generated and must never be scanned for the code marker
+page = template.replace("/*CODESYNTAX*/", codesyntax, 1).replace("/*DATA*/", data, 1)
 
 # Same skeleton and reset the artifact host provides, so both builds look alike.
 SKELETON_HEAD = """<!doctype html>

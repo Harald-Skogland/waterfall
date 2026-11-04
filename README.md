@@ -29,7 +29,7 @@ Live page: https://harald-skogland.github.io/waterfall/
 - The mouse wheel zooms; this can be turned off.
 - Click and drag to pan.
 
-**Code syntax** (hotkey `2`). Pick Web, Android or iOS, and Names (to use in components) or Definitions (a theme file that keeps the Foundation → Alias → Mapped chain). Pick a tier or folder in the tree, then copy one line, the folder, or everything. The details panel's **View** button jumps here.
+**Code syntax** (hotkey `2`). Pick Web, Android or iOS, and Names (to use in components) or Definitions (a theme file that keeps the Foundation → Alias → Mapped chain). Pick a tier or folder in the tree, then copy one line or the folder. **Whole theme** at the top of the tree shows the complete file that **Copy all** copies. The details panel's **View** button jumps here.
 
 **Problems** (hotkey `0`, far right in the toolbar). Three checks, each with its tokens in cards by folder:
 - Dark = Light

@@ -189,13 +189,17 @@ button, input { font: inherit; color: inherit; }
 .cs-prev { display: grid; grid-template-rows: auto minmax(0, 1fr); }
 .cs-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
 .cs-head .copy:disabled { opacity: .4; cursor: default; }
-.cs-code { margin: 0; padding: 10px 0; font: 12px/1.65 var(--f-mono); overflow: auto; min-height: 0; }
-.cs-code span { display: block; padding: 0 12px; white-space: pre; }
-.cs-code .c { color: var(--muted); }
+/* code pane: IDE style, always light text on black (independent of the page theme) */
+.cs-code { --code-bg: #141414; --code-ink: #E6E6E6; --code-comment: #8FBF7F; --code-name: #8CC8FF; --code-hover: rgba(255,255,255,.07); --code-hl: rgba(255,255,255,.16);
+  margin: 0; padding: 10px 0; font: 12px/1.65 var(--f-mono); overflow: auto; min-height: 0; background: var(--code-bg); color: var(--code-ink); border-radius: 0 0 10px 10px; }
+.cs-code > span { display: block; padding: 0 12px; white-space: pre; position: relative; }
+.cs-code .c { color: var(--code-comment); }
+.cs-code .nm { color: var(--code-name); }
 .cs-code .ln { cursor: pointer; }
-.cs-code .ln:hover { background: var(--sunk); }
-.cs-code .ln.ok { background: var(--flag-info-bg); }
-.cs-code .ln.hl { background: var(--flag-warn-bg); transition: background 1.5s; }
+.cs-code .ln:hover { background: var(--code-hover); }
+.cs-code .ln.hl { background: var(--code-hl); transition: background 1.5s; }
+.cs-code .ln.ok::after { content: "Copied"; position: sticky; float: right; right: 12px; font: 600 10px/1.65 var(--f-ui); letter-spacing: .04em; color: var(--code-bg); background: var(--code-ink); border-radius: 4px; padding: 0 6px; margin-left: 12px; }
+.cs-tree .whole { margin-bottom: 6px; border: 1px dashed var(--line); }
 @media (max-width: 600px) { .codepage:not([hidden]) { overflow: visible; } .cs-body { grid-template-columns: minmax(0, 1fr); } .cs-tree { max-height: 40vh; } .cs-code { max-height: 60vh; } }
 .prob { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; }
 .prob header { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
@@ -329,9 +333,18 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
   }
 
   const nameFor = (t, platform) => platform === "web" ? t.web : platform === "android" ? t.android : t.ios;
+  // names for use in code, grouped under "Tier · folder" comments in the platform's comment style
   function namesLines(model, keys, platform) {
-    return keys.map(k => { const t = model.byKey[k], n = nameFor(t, platform);
-      return { k, text: platform === "web" ? "var(" + n + ")" : platform === "android" ? "R.color." + n : "." + n }; });
+    const want = new Set(keys), out = []; let last = null;
+    const comment = s => platform === "web" ? "/* " + s + " */" : "// " + s;
+    for (const t of model.tokens) {
+      if (!want.has(t.k)) continue;
+      const head = t.tier + " · " + (t.folder || "(root)");
+      if (head !== last) { out.push({ k: null, text: comment(head) }); last = head; }
+      const n = nameFor(t, platform);
+      out.push({ k: t.k, text: platform === "web" ? "var(" + n + ")" : platform === "android" ? "R.color." + n : "." + n });
+    }
+    return out;
   }
   const toText = lines => lines.map(l => l.text).join("\n");
 
@@ -371,11 +384,11 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
     "}",
     "extension Color {",
     "  init(light: Color, dark: Color) {",
-    "    self.init(UIColor { $0.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light) })",
+    "    self.init(UIColor { t in (t.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)).resolvedColor(with: t) })",
     "  }",
     "}",
   ].join("\n");
-  const hexExpr = raw => { const h = raw.length === 6 ? raw + "FF" : raw, a = Math.round(parseInt(h.slice(6), 16) / 255 * 100) / 100;
+  const hexExpr = raw => { const h = raw.length === 6 ? raw + "FF" : raw, a = Math.round(parseInt(h.slice(6), 16) / 255 * 1000) / 1000;
     return "Color(hex: 0x" + h.slice(0, 6) + (a < 1 ? ", alpha: " + a : "") + ")"; };
   // inner = inside Color(light:dark:), where members are written without the Color prefix
   const iosExpr = (model, ref, inner) => { const p = parse(ref);
@@ -436,7 +449,7 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
 
   const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines, duplicates, matches, IOS_HELPERS };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.CodeSyntax = api;
-})(this);
+})(typeof globalThis !== "undefined" ? globalThis : this);
 
 (function () {
   const D = window.WATERFALL, T = { F: D.F, A: D.A, M: D.M };
@@ -612,7 +625,7 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
     $("#v-problems").innerHTML = G.map(([title, list]) => `<div class="pgroup"><h2 class="pghead">${esc(title)}</h2>${list.map(section).join("")}</div>`).join(""); }
 
   // ---------- code syntax page (output comes from src/codesyntax.js) ----------
-  const CSX = window.CodeSyntax, cs = { model: CSX.buildModel(window.WATERFALL), platform: "web", mode: "names", file: "light", sel: { tier: "Mapped", path: "" }, open: new Set(["Mapped|"]), lines: [], hl: null };
+  const WHOLE = "__whole", CSX = window.CodeSyntax, cs = { model: CSX.buildModel(window.WATERFALL), platform: "web", mode: "names", file: "light", sel: { tier: "Mapped", path: "" }, open: new Set(["Mapped|"]), lines: [], hl: null };
   try { const p = localStorage.getItem("wf2-cs-platform"), md = localStorage.getItem("wf2-cs-mode"); if (["web", "android", "ios"].includes(p)) cs.platform = p; if (["names", "defs"].includes(md)) cs.mode = md; } catch (e) {}
   const csTerms = () => $("#q").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const csTokens = () => { const terms = csTerms(); return terms.length ? cs.model.tokens.filter(t => CSX.matches(cs.model, t, terms)) : cs.model.tokens; };
@@ -627,7 +640,7 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
   function renderCode() {
     const list = csTokens(), tree = csTree(list), filtering = csTerms().length > 0;
     // while searching, if the selected folder has no hits, move to the first folder that has some
-    if (filtering && list.length && !list.some(t => inSel(t, cs.sel))) { const f = list[0]; cs.sel = { tier: f.tier, path: f.folder }; }
+    if (filtering && cs.sel.tier !== WHOLE && list.length && !list.some(t => inSel(t, cs.sel))) { const f = list[0]; cs.sel = { tier: f.tier, path: f.folder }; }
     document.querySelectorAll("#cs-platform button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.platform));
     document.querySelectorAll("#cs-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.mode));
     document.querySelectorAll("#cs-file button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.file));
@@ -640,29 +653,40 @@ M: [["surface/text-selection/selection","F52","F60","var(--ga-color-surface-sele
       const caret = node.kids.size ? (open ? "▾" : "▸") : "";
       let h = `<button type="button" data-node="${esc(id)}" aria-current="${cur}" style="padding-left:${6 + depth * 14}px"><span class="car">${caret}</span><span class="${depth ? "" : "tier"}">${esc(depth ? node.seg : tier)}</span><span class="n">${node.n}</span></button>`;
       if (open) node.kids.forEach(k => h += row(tier, k, depth + 1)); return h; };
-    $("#cs-tree").innerHTML = tree.length ? tree.map(x => row(x.tier, x.root, 0)).join("") : '<span class="muted" style="padding:6px">No match</span>';
+    const whole = `<button type="button" class="whole" data-node="${WHOLE}" aria-current="${cs.sel.tier === WHOLE}" title="Exactly what Copy all copies"><span class="car">≡</span><span class="tier">Whole theme</span><span class="n">${cs.model.tokens.length}</span></button>`;
+    $("#cs-tree").innerHTML = whole + (tree.length ? tree.map(x => row(x.tier, x.root, 0)).join("") : '<span class="muted" style="padding:6px">No match</span>');
     // preview
-    const keys = list.filter(t => inSel(t, cs.sel)).map(t => t.k);
-    cs.lines = !keys.length ? [] : cs.mode === "names" ? CSX.namesLines(cs.model, keys, cs.platform) : CSX.defLines(cs.model, keys, cs.platform, { full: false, file: cs.file });
-    $("#cs-title").textContent = cs.sel.tier + (cs.sel.path ? " · " + cs.sel.path : "") + (cs.platform === "android" && cs.mode === "defs" ? (cs.file === "night" ? " · values-night/colors.xml" : " · values/colors.xml") : "");
+    const isWhole = cs.sel.tier === WHOLE;
+    if (isWhole) cs.lines = csAllLines(); // the whole theme is always complete, whatever the search
+    else { const keys = list.filter(t => inSel(t, cs.sel)).map(t => t.k);
+      cs.lines = !keys.length ? [] : cs.mode === "names" ? CSX.namesLines(cs.model, keys, cs.platform) : CSX.defLines(cs.model, keys, cs.platform, { full: false, file: cs.file }); }
+    $("#cs-copyf").textContent = isWhole ? "Copy all" : "Copy folder";
+    $("#cs-title").textContent = (isWhole ? "Whole theme" : cs.sel.tier + (cs.sel.path ? " · " + cs.sel.path : "")) + (cs.platform === "android" && cs.mode === "defs" ? (cs.file === "night" ? " · values-night/colors.xml" : " · values/colors.xml") : "");
     $("#cs-copyf").disabled = !cs.lines.length;
-    $("#cs-code").innerHTML = cs.lines.length ? cs.lines.map((l, i) => l.k ? `<span class="ln${l.k === cs.hl ? " hl" : ""}" data-line="${i}" role="button" tabindex="0" title="Click to copy this line">${esc(l.text)}</span>` : `<span class="c">${esc(l.text) || " "}</span>`).join("")
+    $("#cs-code").innerHTML = cs.lines.length ? cs.lines.map((l, i) => l.k ? `<span class="ln${l.k === cs.hl ? " hl" : ""}" data-line="${i}" role="button" tabindex="0" title="Click to copy this line">${csPaint(l.text)}</span>` : `<span class="c">${esc(l.text) || " "}</span>`).join("")
       : '<span class="c">' + (filtering ? "No match" : "Nothing here") + "</span>";
     if (cs.hl) { const n = $("#cs-code .hl"); if (n) { n.scrollIntoView({ block: "center" }); setTimeout(() => n.classList.remove("hl"), 2000); } cs.hl = null; }
   }
+  // colour the token's own name: --x (web), name="x" (android), static let x / .x (ios)
+  function csPaint(text) { const h = esc(text);
+    return h.replace(/^(\s*)(--[\w-]+)(?=:)/, '$1<span class="nm">$2</span>').replace(/(name=&quot;)(\w+)(&quot;)/, '$1<span class="nm">$2</span>$3')
+      .replace(/(static let )(\w+)/, '$1<span class="nm">$2</span>').replace(/^(var\(|R\.color\.|\.)([\w-]+)/, '$1<span class="nm">$2</span>'); }
+  const csAllLines = () => { const all = cs.model.tokens.map(t => t.k);
+    return cs.mode === "names" ? CSX.namesLines(cs.model, all, cs.platform) : CSX.defLines(cs.model, all, cs.platform, { full: true, file: cs.file }); };
   function csCopy(text, btn, label) { navigator.clipboard?.writeText(text).then(() => { if (!btn) return; const old = label || btn.textContent; btn.textContent = "Copied"; btn.classList?.add("ok"); setTimeout(() => { btn.textContent = old; btn.classList?.remove("ok"); }, 1200); }, () => {}); }
   const csSet = (key, v, store) => { cs[key] = v; if (store) try { localStorage.setItem(store, v); } catch (e) {} renderCode(); };
   $("#cs-platform").addEventListener("click", e => { const b = e.target.closest("button"); if (b) csSet("platform", b.dataset.v, "wf2-cs-platform"); });
   $("#cs-mode").addEventListener("click", e => { const b = e.target.closest("button"); if (b) csSet("mode", b.dataset.v, "wf2-cs-mode"); });
   $("#cs-file").addEventListener("click", e => { const b = e.target.closest("button"); if (b) csSet("file", b.dataset.v); });
-  $("#cs-tree").addEventListener("click", e => { const b = e.target.closest("[data-node]"); if (!b) return; const id = b.dataset.node, i = id.indexOf("|"), tier = id.slice(0, i), path = id.slice(i + 1);
+  $("#cs-tree").addEventListener("click", e => { const b = e.target.closest("[data-node]"); if (!b) return; const id = b.dataset.node;
+    if (id === WHOLE) { cs.sel = { tier: WHOLE, path: "" }; renderCode(); return; }
+    const i = id.indexOf("|"), tier = id.slice(0, i), path = id.slice(i + 1);
     const same = cs.sel.tier === tier && cs.sel.path === path; cs.sel = { tier, path }; if (same && cs.open.has(id)) cs.open.delete(id); else cs.open.add(id); renderCode(); });
   $("#cs-code").addEventListener("click", e => { const l = e.target.closest("[data-line]"); if (!l) return; const line = cs.lines[+l.dataset.line];
-    navigator.clipboard?.writeText(line.text.trim()).then(() => { l.classList.add("ok"); setTimeout(() => l.classList.remove("ok"), 900); }, () => {}); });
+    navigator.clipboard?.writeText(line.text.trim()).then(() => { l.classList.add("ok"); setTimeout(() => l.classList.remove("ok"), 1200); }, () => {}); });
   $("#cs-code").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-line]")) { e.preventDefault(); e.target.click(); } });
-  $("#cs-copyf").addEventListener("click", e => csCopy(CSX.toText(cs.lines), e.currentTarget, "Copy folder"));
-  $("#cs-all").addEventListener("click", e => { const all = cs.model.tokens.map(t => t.k);
-    csCopy(CSX.toText(cs.mode === "names" ? CSX.namesLines(cs.model, all, cs.platform) : CSX.defLines(cs.model, all, cs.platform, { full: true, file: cs.file })), e.currentTarget, "Copy all"); });
+  $("#cs-copyf").addEventListener("click", e => csCopy(CSX.toText(cs.lines), e.currentTarget, cs.sel.tier === WHOLE ? "Copy all" : "Copy folder"));
+  $("#cs-all").addEventListener("click", e => csCopy(CSX.toText(csAllLines()), e.currentTarget, "Copy all"));
 
   // details panel "View": open the token's folder on the Code syntax page, in Names mode, with its line highlighted
   function openInCode(k, platform) {
