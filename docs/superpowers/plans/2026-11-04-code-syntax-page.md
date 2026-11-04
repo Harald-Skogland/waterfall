@@ -76,7 +76,7 @@
 | `src/codesyntax.js` (create) | Pure generator: model, resolver, Names output, Definitions output per platform, duplicates. No DOM. Works in Node (`module.exports`) and in the browser (`window.CodeSyntax`). |
 | `tests/codesyntax.test.js` (create) | `node --test` unit tests against the real `src/data.js`. |
 | `scripts/build.py` (modify) | Also inline `src/codesyntax.js` at the `/*CODESYNTAX*/` marker. |
-| `src/template.html` (modify) | `#v-code` markup and CSS, plus the page script: toolbar, tree, preview, copy, search hook, storage. |
+| `src/template.html` (modify) | `#v-code` markup and CSS, plus the page script: toolbar, tree, preview, copy, search hook, storage; View buttons in the details panel. |
 | `CLAUDE.md`, `README.md` (modify) | Document the page, the module and the test command. |
 
 ---
@@ -338,7 +338,40 @@ Page structure inside `#v-code`:
 
 - [ ] **Step 5: Commit**: `git add -A && git commit -m "Code syntax page: tree, preview, copy"`
 
-### Task 6: Docs and publish
+### Task 6: "View" buttons in the details panel
+
+**Files:** Modify `src/template.html` (`metaHtml` code syntax rows, click handler, page script).
+
+**Interfaces:**
+- Consumes: Task 5's `renderCode()` and its tree-selection state.
+- Produces: `openInCode(k: string, platform: "web"|"android"|"ios")` in the page script. It:
+  1. sets the platform (and stores it);
+  2. sets the mode to Names;
+  3. clears the search;
+  4. selects the token's own folder in the tree, expanding its parents;
+  5. switches to `#code-syntax`;
+  6. scrolls the token's line into view and highlights it (`.hl`, background `var(--sunk)`, fading after 2 s).
+
+  It accepts both `M<i>` and `D<i>` keys, and maps `D` to `M`.
+
+Rules:
+- In the details panel's Code syntax section, each platform row (Web, Android, iOS) that has a value gets a **View** button next to its **Copy** button: `<button class="copy" data-view-code="<k>" data-platform="web|android|ios">View</button>`.
+- Rows showing "None" get no View button.
+- This works for Foundation, Alias, Mapped and Components tokens.
+
+- [ ] **Step 1: Add the buttons and the handler.** Add `openInCode` and a delegated click handler for `[data-view-code]`.
+- [ ] **Step 2: Verify in the browser.**
+  1. Select `components/button/primary/surface` in the waterfall.
+  2. Click View on its Android row.
+  3. Check with `javascript_tool`:
+     - the hash is `#code-syntax`;
+     - the platform is Android and the mode is Names;
+     - the tree selection is `components/button/primary`;
+     - a highlighted line contains `R.color.ga_color_surface_button_primary` and is visible inside the preview.
+  4. Repeat with a Foundation token (`grey/100`, iOS) and with a Dark-side key (`D<i>`).
+- [ ] **Step 3: Commit**: `git commit -am "Details panel: View in Code syntax"`
+
+### Task 7: Docs and publish
 
 **Files:** Modify `CLAUDE.md` and `README.md`.
 
