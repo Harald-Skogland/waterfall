@@ -46,6 +46,46 @@
   }
   const toText = lines => lines.map(l => l.text).join("\n");
 
-  const api = { buildModel, resolve, namesLines, toText, parse, nameFor };
+  // Mapped/Components tokens whose resolved Dark color differs from their resolved Light color
+  function darkKeys(model) {
+    return model.tokens.filter(t => t.D != null && resolve(model, t.L, false) !== resolve(model, t.D, true)).map(t => t.k);
+  }
+
+  // ---------- Definitions ----------
+  // per platform: comment(text), line(token, value), value(token-ref parse result, dark)
+  const WEB = {
+    comment: s => "/* " + s + " */",
+    line: (t, v) => t.web + ": " + v + ";",
+    value: (model, p) => {
+      if (p.raw) return "#" + p.raw;
+      const src = "var(" + model.byKey[p.k].web + ")";
+      return p.op != null ? "color-mix(in srgb, " + src + " " + p.op + "%, transparent)" : src;
+    },
+  };
+  // lines for keys (kept in model order), grouped under "Tier · folder" comments
+  function section(model, keys, P, dark, indent) {
+    const want = new Set(keys), out = []; let last = null;
+    for (const t of model.tokens) {
+      if (!want.has(t.k)) continue;
+      const head = t.tier + " · " + (t.folder || "(root)");
+      if (head !== last) { out.push({ k: null, text: indent + P.comment(head) }); last = head; }
+      out.push({ k: t.k, text: indent + P.line(t, P.value(model, parse(dark ? t.D : t.L), dark, t)) });
+    }
+    return out;
+  }
+
+  function defLines(model, keys, platform, opts) {
+    const full = !!(opts && opts.full), dk = new Set(darkKeys(model)), darkOnes = keys.filter(k => dk.has(k));
+    if (platform === "web") {
+      if (full) return [{ k: null, text: ":root {" }, ...section(model, keys, WEB, false, "  "), { k: null, text: "}" },
+        { k: null, text: '[data-theme="dark"] {' }, ...section(model, darkOnes, WEB, true, "  "), { k: null, text: "}" }];
+      const out = [{ k: null, text: WEB.comment("Light: paste into :root") }, ...section(model, keys, WEB, false, "")];
+      if (darkOnes.length) out.push({ k: null, text: "" }, { k: null, text: WEB.comment('Dark: paste into [data-theme="dark"]') }, ...section(model, darkOnes, WEB, true, ""));
+      return out;
+    }
+    throw new Error("unknown platform " + platform);
+  }
+
+  const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.CodeSyntax = api;
 })(this);

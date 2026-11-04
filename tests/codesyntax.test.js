@@ -32,3 +32,24 @@ test("names per platform", () => {
   assert.equal(CS.toText(CS.namesLines(m, k, "android")), "R.color.ga_color_text_body");
   assert.equal(CS.toText(CS.namesLines(m, k, "ios")), ".gaColorTextBody");
 });
+
+// ---------- Task 2: Web definitions ----------
+const L = (name, opts = { full: false }) => CS.toText(CS.defLines(m, [key(name, "Alias")], "web", opts));
+test("web: alias keeps chain", () => assert.match(L("text/body"), /--ga-color-alias-text-body: var\(--ga-color-grey-100\);/));
+test("web: mapped light + dark (dark skips alias -> foundation)", () => {
+  const t = L("text/default/body");
+  assert.match(t, /--ga-color-text-body: var\(--ga-color-alias-text-body\);/);
+  assert.match(t, /\/\* Dark: paste into \[data-theme="dark"\] \*\/\n(.*\n)*--ga-color-text-body: var\(--ga-color-grey-10\);/);
+});
+test("web: component pointing at a dark-changing mapped token is in the dark block", () => {
+  assert.ok(CS.darkKeys(m).includes(key("components/button/primary/surface")));
+  assert.match(L("components/button/primary/surface"), /Dark[\s\S]*--ga-color-surface-button-primary: var\(--ga-color-surface-action\);/);
+});
+test("web: opacity and raw hex", () => {
+  assert.match(L("miscellaneous/scrim"), /--ga-color-miscellaneous-overlay: color-mix\(in srgb, var\(--ga-color-grey-100\) 60%, transparent\);/);
+  assert.match(L("surface/overlay/overlay-hover"), /--ga-color-surface-overlay-hover: #33000040;/);
+});
+test("web: full file wraps", () => {
+  const t = CS.toText(CS.defLines(m, m.tokens.map(x => x.k), "web", { full: true }));
+  assert.ok(t.startsWith(":root {")); assert.match(t, /\n\}\n\[data-theme="dark"\] \{\n/); assert.ok(t.trimEnd().endsWith("}"));
+});
