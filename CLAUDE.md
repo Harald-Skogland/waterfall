@@ -108,7 +108,7 @@ The export is read only. **Never change variables in Figma as part of work on th
 - Shorthand: F/ = foundation, A/ = alias, M/ = mapped, L/ = the old legacy folder (now empty), M/multi = mapped `multi-purpose/`.
 - A question is not a command: answer it, and change nothing unless asked.
 - Keep replies short. Report what changed and anything they need to check.
-- The related Figma printout of the waterfall lives on the page `_Color token waterfall` in the same Figma file. It is separate from this web page.
+- There used to be a static Figma printout of the waterfall on a page `_Color token waterfall`. The user had it deleted on 4 Nov 2026 as obsolete; this web page replaces it. Don't rebuild it unless asked.
 
 ## GitHub and hosting
 - **Repo:** https://github.com/Harald-Skogland/waterfall (public).
