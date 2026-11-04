@@ -101,6 +101,8 @@ The export is read only. **Never change variables in Figma as part of work on th
   - Toolbar: Web / Android / iOS, Names / Definitions, and Copy all. In Android Definitions, a `values/colors.xml` / `values-night/colors.xml` toggle.
   - Click a line to copy that token; Copy folder copies the preview. Partial copies are bare lines; only Copy all is a full file.
   - **Whole theme** (top of the tree) previews exactly what Copy all copies (full file, unfiltered); its header button reads Copy all.
+  - Lines show a "Copy" badge at the far right on hover, which turns into "Copied" on click. The View arrival highlight is a blue band with a left accent bar, held for 4 s.
+  - All copying goes through `copyText()`, which uses the Clipboard API and falls back to a hidden textarea + `execCommand` where the API is blocked (sandboxed frames, the app's browser pane).
   - The code pane is IDE style and always dark (light text on `#141414`, green comments, blue token names), whatever the page theme.
   - Names output carries folder comment headers too (`/* … */` on Web, `// …` on Android/iOS).
   - Search (S) filters the tree on this page.

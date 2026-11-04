@@ -144,7 +144,9 @@ button, input { font: inherit; color: inherit; }
 .cs { display: grid; gap: 6px; }
 .csrow small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; margin-bottom: 1px; }
 .csrow code { word-break: break-all; }
-.copy { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; margin-left: 6px; }
+.copy { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; margin-left: 6px; transition: background .12s, color .12s, border-color .12s; }
+.copy:hover:not(:disabled) { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.copy:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .flags { display: flex; gap: 4px; flex-wrap: wrap; }
 .flag { font-size: 11px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; font-weight: 500; }
 .flag.warn { background: var(--flag-warn-bg); color: var(--flag-warn); }
@@ -184,8 +186,13 @@ button, input { font: inherit; color: inherit; }
 .cs-code .nm { color: var(--code-name); }
 .cs-code .ln { cursor: pointer; }
 .cs-code .ln:hover { background: var(--code-hover); }
-.cs-code .ln.hl { background: var(--code-hl); transition: background 1.5s; }
-.cs-code .ln.ok::after { content: "Copied"; position: sticky; float: right; right: 12px; font: 600 10px/1.65 var(--f-ui); letter-spacing: .04em; color: var(--code-bg); background: var(--code-ink); border-radius: 4px; padding: 0 6px; margin-left: 12px; }
+/* View arrival: blue band + accent bar, held for 4 s, then fades */
+.cs-code .ln.hl { background: rgba(140, 200, 255, .26); box-shadow: inset 4px 0 0 var(--code-name); transition: background 1s, box-shadow 1s; }
+/* hover shows "Copy" at the far right; a click turns it into "Copied" */
+.cs-code .ln::after { content: "Copy"; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font: 600 10px/1.5 var(--f-ui); letter-spacing: .04em; border-radius: 4px; padding: 0 7px;
+  color: var(--code-ink); border: 1px solid rgba(255,255,255,.35); background: var(--code-bg); opacity: 0; pointer-events: none; }
+.cs-code .ln:hover::after, .cs-code .ln:focus-visible::after { opacity: 1; }
+.cs-code .ln.ok::after { content: "Copied"; opacity: 1; color: var(--code-bg); background: var(--code-ink); border-color: var(--code-ink); }
 .cs-tree .whole { margin-bottom: 6px; border: 1px dashed var(--line); }
 @media (max-width: 600px) { .codepage:not([hidden]) { overflow: visible; } .cs-body { grid-template-columns: minmax(0, 1fr); } .cs-tree { max-height: 40vh; } .cs-code { max-height: 60vh; } }
 .prob { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; }
@@ -447,6 +454,12 @@ button, input { font: inherit; color: inherit; }
     $("#v-problems").innerHTML = G.map(([title, list]) => `<div class="pgroup"><h2 class="pghead">${esc(title)}</h2>${list.map(section).join("")}</div>`).join(""); }
 
   // ---------- code syntax page (output comes from src/codesyntax.js) ----------
+  // copy with the Clipboard API, falling back to a hidden textarea + execCommand where the API is blocked (sandboxed frames)
+  function copyText(text) {
+    const legacy = () => { const ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
+      document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand("copy"); } catch (e) {} ta.remove(); return ok ? Promise.resolve() : Promise.reject(new Error("copy failed")); };
+    return navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(text).catch(legacy) : legacy();
+  }
   const WHOLE = "__whole", CSX = window.CodeSyntax, cs = { model: CSX.buildModel(window.WATERFALL), platform: "web", mode: "names", file: "light", sel: { tier: "Mapped", path: "" }, open: new Set(["Mapped|"]), lines: [], hl: null };
   try { const p = localStorage.getItem("wf2-cs-platform"), md = localStorage.getItem("wf2-cs-mode"); if (["web", "android", "ios"].includes(p)) cs.platform = p; if (["names", "defs"].includes(md)) cs.mode = md; } catch (e) {}
   const csTerms = () => $("#q").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -487,7 +500,7 @@ button, input { font: inherit; color: inherit; }
     $("#cs-copyf").disabled = !cs.lines.length;
     $("#cs-code").innerHTML = cs.lines.length ? cs.lines.map((l, i) => l.k ? `<span class="ln${l.k === cs.hl ? " hl" : ""}" data-line="${i}" role="button" tabindex="0" title="Click to copy this line">${csPaint(l.text)}</span>` : `<span class="c">${esc(l.text) || " "}</span>`).join("")
       : '<span class="c">' + (filtering ? "No match" : "Nothing here") + "</span>";
-    if (cs.hl) { const n = $("#cs-code .hl"); if (n) { n.scrollIntoView({ block: "center" }); setTimeout(() => n.classList.remove("hl"), 2000); } cs.hl = null; }
+    if (cs.hl) { const n = $("#cs-code .hl"); if (n) { n.scrollIntoView({ block: "center" }); setTimeout(() => n.classList.remove("hl"), 4000); } cs.hl = null; }
   }
   // colour the token's own name: --x (web), name="x" (android), static let x / .x (ios)
   function csPaint(text) { const h = esc(text);
@@ -495,7 +508,7 @@ button, input { font: inherit; color: inherit; }
       .replace(/(static let )(\w+)/, '$1<span class="nm">$2</span>').replace(/^(var\(|R\.color\.|\.)([\w-]+)/, '$1<span class="nm">$2</span>'); }
   const csAllLines = () => { const all = cs.model.tokens.map(t => t.k);
     return cs.mode === "names" ? CSX.namesLines(cs.model, all, cs.platform) : CSX.defLines(cs.model, all, cs.platform, { full: true, file: cs.file }); };
-  function csCopy(text, btn, label) { navigator.clipboard?.writeText(text).then(() => { if (!btn) return; const old = label || btn.textContent; btn.textContent = "Copied"; btn.classList?.add("ok"); setTimeout(() => { btn.textContent = old; btn.classList?.remove("ok"); }, 1200); }, () => {}); }
+  function csCopy(text, btn, label) { copyText(text).then(() => { if (!btn) return; const old = label || btn.textContent; btn.textContent = "Copied"; btn.classList?.add("ok"); setTimeout(() => { btn.textContent = old; btn.classList?.remove("ok"); }, 1200); }, () => {}); }
   const csSet = (key, v, store) => { cs[key] = v; if (store) try { localStorage.setItem(store, v); } catch (e) {} renderCode(); };
   $("#cs-platform").addEventListener("click", e => { const b = e.target.closest("button"); if (b) csSet("platform", b.dataset.v, "wf2-cs-platform"); });
   $("#cs-mode").addEventListener("click", e => { const b = e.target.closest("button"); if (b) csSet("mode", b.dataset.v, "wf2-cs-mode"); });
@@ -505,7 +518,7 @@ button, input { font: inherit; color: inherit; }
     const i = id.indexOf("|"), tier = id.slice(0, i), path = id.slice(i + 1);
     const same = cs.sel.tier === tier && cs.sel.path === path; cs.sel = { tier, path }; if (same && cs.open.has(id)) cs.open.delete(id); else cs.open.add(id); renderCode(); });
   $("#cs-code").addEventListener("click", e => { const l = e.target.closest("[data-line]"); if (!l) return; const line = cs.lines[+l.dataset.line];
-    navigator.clipboard?.writeText(line.text.trim()).then(() => { l.classList.add("ok"); setTimeout(() => l.classList.remove("ok"), 1200); }, () => {}); });
+    copyText(line.text.trim()).then(() => { l.classList.add("ok"); setTimeout(() => l.classList.remove("ok"), 1200); }, () => {}); });
   $("#cs-code").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches("[data-line]")) { e.preventDefault(); e.target.click(); } });
   $("#cs-copyf").addEventListener("click", e => csCopy(CSX.toText(cs.lines), e.currentTarget, cs.sel.tier === WHOLE ? "Copy all" : "Copy folder"));
   $("#cs-all").addEventListener("click", e => csCopy(CSX.toText(csAllLines()), e.currentTarget, "Copy all"));
@@ -529,7 +542,7 @@ button, input { font: inherit; color: inherit; }
   function onHash() { const h = location.hash.slice(1); setView(h === "problems" ? "problems" : h === "code-syntax" ? "code" : "waterfall"); }
   window.addEventListener("hashchange", onHash);
   document.addEventListener("click", e => {
-    const c = e.target.closest("[data-copy]"); if (c) { navigator.clipboard?.writeText(c.dataset.copy).then(() => { c.textContent = "Copied"; setTimeout(() => c.textContent = "Copy", 1200); }, () => {}); return; }
+    const c = e.target.closest("[data-copy]"); if (c) { copyText(c.dataset.copy).then(() => { c.textContent = "Copied"; setTimeout(() => c.textContent = "Copy", 1200); }, () => {}); return; }
     const vc = e.target.closest("[data-view-code]"); if (vc) { openInCode(vc.dataset.viewCode, vc.dataset.platform); return; }
     const k = e.target.closest("[data-k]"); if (!k) { if (!e.target.closest(".search")) $("#hits").hidden = true; return; }
     const fromFall = !!k.closest("#fall");
