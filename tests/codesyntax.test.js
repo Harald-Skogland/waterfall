@@ -90,3 +90,10 @@ test("ios: helpers only in full", () => {
   const t = CS.toText(CS.defLines(m, m.tokens.map(x => x.k), "ios", { full: true }));
   assert.ok(t.startsWith("import SwiftUI")); assert.equal(t.split("init(light:").length - 1, 1);
 });
+
+// ---------- Task 5: duplicates ----------
+test("no duplicate names today", () => { for (const p of ["web", "android", "ios"]) assert.deepEqual(CS.duplicates(m, p), []); });
+test("duplicates are detected", () => {
+  const m2 = structuredClone(m); m2.tokens[1].web = m2.tokens[0].web;
+  assert.equal(CS.duplicates(m2, "web").length, 1);
+});

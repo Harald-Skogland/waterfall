@@ -131,6 +131,13 @@
     throw new Error("unknown platform " + platform);
   }
 
-  const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines, IOS_HELPERS };
+  // names shared by more than one token on a platform (those won't build on Android/iOS)
+  function duplicates(model, platform) {
+    const by = {};
+    model.tokens.forEach(t => { const n = nameFor(t, platform); if (n) (by[n] = by[n] || []).push(t.k); });
+    return Object.entries(by).filter(([, keys]) => keys.length > 1).map(([name, keys]) => ({ name, keys }));
+  }
+
+  const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines, duplicates, IOS_HELPERS };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.CodeSyntax = api;
 })(this);
