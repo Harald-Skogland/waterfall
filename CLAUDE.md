@@ -35,6 +35,8 @@
    - Descriptions for new tokens come in empty; fill them in by hand if needed.
 5. Build and publish.
 
+**Verifying a local copy against Figma:** compare an order-independent fingerprint (hash of the rows sorted), and take the order separately as a list of variable ids. A few Mapped pairs (e.g. `icon/link` / `doc/spacing`) swap places in `variableIds` after unrelated writes, probably tied sort keys, so an order-dependent fingerprint gives false mismatches.
+
 The export is read only. **Never change variables in Figma as part of work on this page.**
 
 ## How the app works (src/template.html)
