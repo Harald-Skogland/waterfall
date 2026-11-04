@@ -10,8 +10,8 @@ Live page: https://harald-skogland.github.io/waterfall/
 1. Foundation
 2. Alias · generic (primary, secondary, neutral, basic)
 3. Alias · multipurpose
-4. Mapped · Light (multi-purpose, miscellaneous, doc)
-5. Mapped · component-level · Light
+4. Mapped (every mapped token outside `components/`)
+5. Components (`components/`, which may source from Mapped)
 
 **Display Dark mode** (hotkey `3`) adds a black *Dark* column right of each Mapped column, linked to the Dark sources with dashed lines.
 

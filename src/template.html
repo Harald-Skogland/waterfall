@@ -4,7 +4,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&family=Newsreader:opsz,wght@6..72,500&display=swap">
 <style>
-/* Layout: a left-to-right waterfall (Foundation → generic Alias → multipurpose Alias → Mapped) with links drawn behind the columns; a trace panel fixed to the right edge (bottom sheet on phones). */
+/* Layout: a left-to-right waterfall (Foundation → generic Alias → multipurpose Alias → Mapped → Components) with links drawn behind the columns; a trace panel fixed to the right edge (bottom sheet on phones). */
 :root {
   --bg: #FBF7F6; --panel: #FFFFFF; --sunk: #F4EDEC; --ink: #1D1716; --muted: #6B5F5E; --line: #E9DFDE;
   --link: #BFB2B1; --hot: #B3140E; --hot-soft: #FBE1E0; --focus: #5E1077;
@@ -211,40 +211,44 @@ button, input { font: inherit; color: inherit; }
   const nameOf = k => row(k)[0];
   const rgba = (hex, op) => { let a = hex.length === 8 ? parseInt(hex.slice(6), 16) / 255 : 1; if (op != null) a *= op / 100; const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16); return a >= 0.999 ? "#" + hex.slice(0, 6) : `rgba(${r},${g},${b},${a.toFixed(2)})`; };
   const hexText = (hex, op) => { let a = hex.length === 8 ? parseInt(hex.slice(6), 16) / 255 : 1; if (op != null) a *= op / 100; return "#" + hex.slice(0, 6) + (a < 0.999 ? " · " + Math.round(a * 100) + "%" : ""); };
-  function chain(ref) { const steps = []; let p = parse(ref), op = null, g = 0;
-    while (p && g++ < 12) { if (p.raw) { steps.push({ raw: p.raw }); break; } if (p.op != null) op = p.op; steps.push(p.k); p = parse(row(p.k)[1]); }
+  // dark = follow a mapped source through its Dark value (key D<i>); Components may source from Mapped
+  const srcKey = (p, dark) => dark && p.t === "M" ? "D" + p.i : p.k;
+  function chain(ref, dark) { const steps = []; let p = parse(ref), op = null, g = 0;
+    while (p && g++ < 12) { if (p.raw) { steps.push({ raw: p.raw }); break; } if (p.op != null) op = p.op; const k = srcKey(p, dark); steps.push(k); p = parse(row(k)[k[0] === "D" ? 2 : 1]); }
     const end = steps[steps.length - 1]; const hex = end && end.raw ? end.raw : null; return { steps, op, css: hex ? rgba(hex, op) : "transparent", text: hex ? hexText(hex, op) : "—" }; }
   const val = {}; // resolved colour per key (Light for M) + dark
   T.F.forEach((f, i) => val["F" + i] = chain(f[1]));
   T.A.forEach((a, i) => val["A" + i] = chain(a[1]));
   // M keys are the Light side of a mapped token, D keys the Dark side of the same token
-  const mDark = {}; T.M.forEach((m, i) => { val["M" + i] = chain(m[1]); val["D" + i] = mDark["M" + i] = mDark["D" + i] = chain(m[2]); });
+  const mDark = {}; T.M.forEach((m, i) => { val["M" + i] = chain(m[1]); val["D" + i] = mDark["M" + i] = mDark["D" + i] = chain(m[2], true); });
   // edges: {from, to, m: 'A' | 'L' | 'D'}
   const edges = [];
   T.A.forEach((a, i) => { const p = parse(a[1]); if (p && !p.raw) edges.push({ from: p.k, to: "A" + i, m: "A" }); });
   T.M.forEach((m, i) => { const l = parse(m[1]), d = parse(m[2]);
     if (l && !l.raw) edges.push({ from: l.k, to: "M" + i, m: "L" });
-    if (d && !d.raw) edges.push({ from: d.k, to: "D" + i, m: "D" }); });
+    if (d && !d.raw) edges.push({ from: srcKey(d, true), to: "D" + i, m: "D" }); });
   const inMode = (e, mode) => e.m !== "D" || mode === "dark";
   // reachability (any mode) for fading
-  const used = new Set(); T.M.forEach((m, i) => { used.add("M" + i); used.add("D" + i); [m[1], m[2]].forEach(r => chain(r).steps.forEach(s => typeof s === "string" && used.add(s))); });
+  const used = new Set(); T.M.forEach((m, i) => { used.add("M" + i); used.add("D" + i); [[m[1], false], [m[2], true]].forEach(([r, dk]) => chain(r, dk).steps.forEach(s => typeof s === "string" && used.add(s))); });
   // flags
   const norm = s => s.replace(/^var\((.*)\)$/, "$1");
   const csMap = {}; T.M.forEach((m, i) => m[3] && (csMap[norm(m[3])] = csMap[norm(m[3])] || []).push("M" + i)); T.A.forEach((a, i) => a[2] && (csMap[norm(a[2])] = csMap[norm(a[2])] || []).push("A" + i));
   const skips = r => { const p = parse(r); return !p || p.raw || p.t === "F"; };
-  const flagsM = {}; T.M.forEach((m, i) => flagsM["M" + i] = flagsM["D" + i] = { same: m[1] === m[2], skip: skips(m[1]) || skips(m[2]), nocs: !m[3], dup: !!m[3] && csMap[norm(m[3])].length > 1 });
+  // Dark = Light: same source in both modes; a shared mapped source only counts if that source is itself Dark = Light
+  const sameAt = (i, g = 0) => { const m = T.M[i]; if (m[1] !== m[2]) return false; const p = parse(m[1]); return !(p && p.t === "M") || (g < 12 && sameAt(p.i, g + 1)); };
+  const flagsM = {}; T.M.forEach((m, i) => flagsM["M" + i] = flagsM["D" + i] = { same: sameAt(i), skip: skips(m[1]) || skips(m[2]), nocs: !m[3], dup: !!m[3] && csMap[norm(m[3])].length > 1 });
 
   // ---------- columns ----------
   function groups(keys, sortNum) { const root = { leaves: [], kids: new Map() };
     keys.forEach(k => { const parts = nameOf(k).split("/"); let n = root; parts.slice(0, -1).forEach(p => { if (!n.kids.has(p)) n.kids.set(p, { leaves: [], kids: new Map() }); n = n.kids.get(p); }); n.leaves.push(k); });
     const out = []; (function walk(n, path) { if (n.leaves.length) { const l = sortNum ? [...n.leaves].sort((a, b) => (parseInt(nameOf(a).split("/").pop()) || 0) - (parseInt(nameOf(b).split("/").pop()) || 0)) : n.leaves; out.push({ path, items: l }); } n.kids.forEach((c, k) => walk(c, path ? path + "/" + k : k)); })(root, ""); return out; }
   const FK = T.F.map((_, i) => "F" + i), AG = T.A.map((_, i) => "A" + i).filter(k => GENERIC.test(nameOf(k))), AM = T.A.map((_, i) => "A" + i).filter(k => !GENERIC.test(nameOf(k))), MK = T.M.map((_, i) => "M" + i);
-  const MCL = MK.filter(k => nameOf(k).startsWith("component-level/")), MMP = MK.filter(k => !nameOf(k).startsWith("component-level/"));
+  const MCL = MK.filter(k => nameOf(k).startsWith("components/")), MMP = MK.filter(k => !nameOf(k).startsWith("components/"));
   const toD = keys => keys.map(k => "D" + k.slice(1));
-  const colsFor = m => { const c = [["Foundation", FK, true, "colors", 170], ["Alias · generic", AG, true, "aliases", 190], ["Alias · multipurpose", AM, false, "aliases", 250], ["Mapped · Light", MMP, false, "tokens · multi-purpose, miscellaneous, doc", 280]];
+  const colsFor = m => { const c = [["Foundation", FK, true, "colors", 170], ["Alias · generic", AG, true, "aliases", 190], ["Alias · multipurpose", AM, false, "aliases", 250], ["Mapped", MMP, false, "tokens", 280]];
     if (m === "dark") c.push(["Mapped · Dark", toD(MMP), false, "same tokens in Dark mode", 280, true]);
-    c.push(["Mapped · component-level · Light", MCL, false, "tokens", 300]);
-    if (m === "dark") c.push(["Mapped · component-level · Dark", toD(MCL), false, "same tokens in Dark mode", 300, true]);
+    c.push(["Components", MCL, false, "tokens", 300]);
+    if (m === "dark") c.push(["Components · Dark", toD(MCL), false, "same tokens in Dark mode", 300, true]);
     return c; };
 
   let mode = "light", sel = null, view = "waterfall", zoom = 1, wheelZoom = true;
@@ -299,7 +303,7 @@ button, input { font: inherit; color: inherit; }
     r.es.forEach(ix => { const p = $("#links").querySelector(`path[data-e="${ix}"]`); if (p) p.classList.add("on"); }); }
 
   // ---------- trace panel ----------
-  function chainHtml(ref, title) { const c = chain(ref);
+  function chainHtml(ref, title, dark) { const c = chain(ref, dark);
     const st = c.steps.map(s => { if (typeof s !== "string") return `<div class="step">${sw(rgba(s.raw, c.op))}<div><small>Raw value</small><span class="hex">${hexText(s.raw, c.op)}</span></div></div>`;
       return `<div class="step">${sw(val[s].css)}<div><small>${TIER[s[0]]}</small><button type="button" class="lnk" data-k="${s}">${esc(nameOf(s))}</button></div></div>`; }).join("");
     return `<div class="kv"><div class="eyebrow">${title}</div><div class="chain">${st}</div><div class="hex">Resolves to ${c.text}</div></div>`; }
@@ -313,8 +317,8 @@ button, input { font: inherit; color: inherit; }
     let h = `<div><div class="eyebrow">${TIER[t]}</div><div class="name">${esc(parts.pop())}</div><div class="path">${esc(parts.join("/"))}</div></div>`;
     if (t === "M" || t === "D") { const f = flagsM[k], lk = "M" + k.slice(1);
       h += `<div class="cols2"><div class="kv"><div class="eyebrow">Light</div>${sw(val[lk].css, "lg")}<span class="hex">${val[lk].text}</span></div><div class="kv"><div class="eyebrow">Dark</div><span><span class="dk lg">${sw(mDark[lk].css, "lg")}</span></span><span class="hex">${mDark[lk].text}</span></div></div>`;
-      const lr = chainHtml(r[1], "Light route"), dr = f.same ? `<div class="kv"><div class="eyebrow">Dark route</div><span class="same">Same as Light</span></div>` : chainHtml(r[2], "Dark route");
-      h += t === "D" ? (f.same ? chainHtml(r[2], "Dark route (same as Light)") : dr + lr) : lr + dr;
+      const lr = chainHtml(r[1], "Light route"), dr = f.same ? `<div class="kv"><div class="eyebrow">Dark route</div><span class="same">Same as Light</span></div>` : chainHtml(r[2], "Dark route", true);
+      h += t === "D" ? (f.same ? chainHtml(r[2], "Dark route (same as Light)", true) : dr + lr) : lr + dr;
       h += `<div class="kv"><div class="eyebrow">Code syntax</div><div>${r[3] ? `<code>${esc(r[3])}</code><button class="copy" type="button" data-copy="${esc(r[3])}">Copy</button>` : '<span class="muted">None</span>'}</div></div>`;
       h += `<div class="kv"><div class="eyebrow">Description</div><div>${r[4] ? esc(r[4]) : '<span class="muted">None</span>'}</div></div>`;
       const fl = flagHtml(f); if (fl) h += `<div class="flags">${fl}</div>`;
@@ -405,6 +409,6 @@ button, input { font: inherit; color: inherit; }
   $("#darkmode").checked = mode === "dark";
   $("#snap").textContent = D.snapshot + " · color variables only · read-only snapshot of the Variables panel";
   renderProblems(); buildFall(); onHash();
-  select(MK.find(k => nameOf(k) === "component-level/button/primary/surface") || null, false);
+  select(MK.find(k => nameOf(k) === "components/button/primary/surface") || null, false);
 })();
 </script>

@@ -8,8 +8,8 @@
 // Update window.WATERFALL.snapshot with the date.
 //
 // Row formats (all in Variables-panel order, color variables only):
-//   F: [name without "color/", "#RRGGBB[AA]"]
-//   A: [name without "color/", ref, WEB code syntax, description]
+//   F: [name without the "color-foundation/" (or old "color/") prefix, "#RRGGBB[AA]"]
+//   A: [name without the "color-alias/" (or old "color/") prefix, ref, WEB code syntax, description]
 //   M: [full name, Light ref, Dark ref, WEB code syntax, description]
 // A ref is "F12" / "A34" / "M5" (index into that list), "#RRGGBB[AA]" for a
 // raw value, or "F11@60" for an alias with an opacity override (percent).
@@ -32,12 +32,13 @@ const hx = c => [c.r, c.g, c.b].map(x => Math.round(x * 255).toString(16).padSta
 const ref = x => { if (!x) return ""; if (x.type === "VARIABLE_ALIAS") return idx[x.id] || "?";
   if (x.color?.type === "VARIABLE_ALIAS") return (idx[x.color.id] || "?") + "@" + Math.round(x.opacity);
   if ("r" in x) return "#" + hx(x); return "?"; };
+const strip = n => n.replace(/^color(-foundation|-alias)?\//, "");
 const d = s => (s || "").replace(/\s+/g, " ").trim();
 const mRow = v => [v.name, ref(v.valuesByMode[M.modes[0].modeId]), ref(v.valuesByMode[M.modes[1].modeId]), v.codeSyntax?.WEB || "", d(v.description)];
 
 if (PART === "FA") return JSON.stringify({
-  F: Fl.map(v => [v.name.replace(/^color\//, ""), ref(v.valuesByMode[F.modes[0].modeId])]),
-  A: Al.map(v => [v.name.replace(/^color\//, ""), ref(v.valuesByMode[A.modes[0].modeId]), v.codeSyntax?.WEB || "", d(v.description)])
+  F: Fl.map(v => [strip(v.name), ref(v.valuesByMode[F.modes[0].modeId])]),
+  A: Al.map(v => [strip(v.name), ref(v.valuesByMode[A.modes[0].modeId]), v.codeSyntax?.WEB || "", d(v.description)])
 });
 const half = Math.ceil(Ml.length / 2);
 return JSON.stringify((PART === "M1" ? Ml.slice(0, half) : Ml.slice(half)).map(mRow));

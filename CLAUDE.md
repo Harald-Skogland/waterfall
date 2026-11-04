@@ -41,6 +41,9 @@ The export is read only. **Never change variables in Figma as part of work on th
 - Edges are `{from, to, m}`, with `m` = `A` (alias source), `L` (mapped Light) or `D` (mapped Dark). Dark edges show only when Display Dark mode is on.
 
 **Columns**
+- Foundation | Alias · generic | Alias · multipurpose | Mapped | Components. Components = mapped tokens under `components/`; Mapped = every other mapped token (the old `multi-purpose/` folder was ungrouped into the mapped root on 4 Nov 2026).
+- Sourcing rule: a Components token may source from a Mapped token, never from another Components token. `chain(ref, dark)` follows a mapped source through its Dark value when `dark` is true (key `D<i>`), and Dark = Light only counts through a shared mapped source when that source is itself Dark = Light.
+- Figma names: foundation and alias variables start with `color-foundation/` and `color-alias/` (formerly `color/`); the export strips either prefix.
 - `colsFor(mode)` builds the column list. The Dark columns have class `darkcol` and are pulled close to their Light twin with a negative margin.
 - Column headings are a separate overlay (`#heads`) outside the zoomed content. They are positioned by `placeHeads()`, which runs on scroll and on zoom.
 
