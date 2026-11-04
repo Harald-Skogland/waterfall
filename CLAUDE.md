@@ -44,7 +44,7 @@ The export is read only. **Never change variables in Figma as part of work on th
 **Model**
 - Refs are parsed from strings like `A12` or `F11@60`; `chain()` resolves a ref down to a raw hex.
 - Keys are `F<i>`, `A<i>`, `M<i>` (Light side of a mapped token) and `D<i>` (Dark side of the same token).
-- Edges are `{from, to, m}`, with `m` = `A` (alias source), `L` (mapped Light) or `D` (mapped Dark). Dark edges show only when Display Dark mode is on.
+- Edges are `{from, to, m}`, with `m` = `A` (alias source), `L` (mapped Light) or `D` (mapped Dark). Dark edges show only when Include Dark mode is on.
 
 **Columns**
 - Foundation | Alias · generic | Alias · multipurpose | Mapped | Components. Components = mapped tokens under `components/`; Mapped = every other mapped token (the old `multi-purpose/` folder was ungrouped into the mapped root on 4 Nov 2026).
@@ -64,7 +64,7 @@ The export is read only. **Never change variables in Figma as part of work on th
 - With nothing selected, links are drawn only when **Show all connections** is ticked.
 
 **Hotkeys and storage**
-- Hotkeys: `1` Waterfall, `2` Code syntax, `0` Problems, `3` Display Dark mode, `S` focuses search, `Esc` clears the selection. Hotkeys are ignored while typing in a field.
+- Hotkeys: `1` Waterfall, `2` Code syntax, `0` Problems, `3` Include Dark mode, `S` focuses search, `Esc` clears the selection. Hotkeys are ignored while typing in a field.
 - Views/hashes: `#waterfall`, `#code-syntax` (`#v-code`), `#problems`.
 - localStorage (wrapped in try/catch) remembers the mode (`wf2-mode`), zoom (`wf2-zoom`) and the wheel setting (`wf2-wheel`).
 
@@ -93,8 +93,8 @@ The export is read only. **Never change variables in Figma as part of work on th
 - Row layouts in data.js (incl. scopes, hidden, Android/iOS) are documented in `scripts/convert-export.js`.
 
 **Controls**
-- Button labels carry their hotkey in the text: "Waterfall (1)", "Code syntax (2)", "Display Dark mode (3)", "Clear (Esc)", "Problems (0)"; the search placeholder is "Search (S)".
-- Header toolbar is three groups: left = Waterfall / Code syntax tabs + Display Dark mode; center = search (about 280 px), Clear, Show all connections; far right = Problems. Under 1200 px the center group moves to its own centered row.
+- Button labels carry their hotkey in the text: "Waterfall (1)", "Code syntax (2)", "Include Dark mode (3)", "Clear (Esc)", "Problems (0)"; the search placeholder is "Search (S)".
+- Header toolbar is three groups: left = Waterfall / Code syntax tabs + Include Dark mode; center = search (about 280 px), Clear, Show all connections; far right = Problems. Under 1200 px the center group moves to its own centered row.
 - Search matches every typed word in any order (AND), across name, Light/Dark hex and Web/Android/iOS code syntax; up to 60 hits are listed, with a count when there are more.
 - **Code syntax page** (`#code-syntax`):
   - Folder tree on the left, code preview on the right.
@@ -104,7 +104,7 @@ The export is read only. **Never change variables in Figma as part of work on th
   - Lines show a "Copy" badge at the far right on hover, which turns into "Copied" on click. The View arrival highlight is a blue band with a left accent bar, held for 4 s.
   - All copying goes through `copyText()`, which uses the Clipboard API and falls back to a hidden textarea + `execCommand` where the API is blocked (sandboxed frames, the app's browser pane).
   - The code pane is IDE style and always dark (light text on `#141414`, green comments, blue token names), whatever the page theme.
-  - **Display Dark mode (3) also drives this page.** Unchecked, Definitions are Light only (`defLines(..., { dark: false })`): no Web Dark block, no Android values-night tab, and iOS tokens as single Light colors. A note says so. Checked, all Dark output is back. Names are the same either way.
+  - **Include Dark mode (3) also drives this page.** Unchecked, Definitions are Light only (`defLines(..., { dark: false })`): no Web Dark block, no Android values-night tab, and iOS tokens as single Light colors. A note says so. Checked, all Dark output is back. Names are the same either way.
   - The known Dark = Light utilities (`CodeSyntax.KNOWN_DARK_SAME`: utility red/orange/green/purple in Mapped and Components) always get a Dark entry: in the Web Dark block, the Android night file, and as `Color(light:dark:)` on iOS, even though Dark equals Light. The same pattern drives the Problems page's Notes section.
   - Names output carries folder comment headers too (`/* … */` on Web, `// …` on Android/iOS).
   - Search (S) filters the tree on this page; Esc clears the search here (on the Waterfall, Esc clears the selection).

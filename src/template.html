@@ -222,7 +222,7 @@ button, input { font: inherit; color: inherit; }
         <a href="#waterfall" data-view="waterfall" aria-keyshortcuts="1">Waterfall (1)</a>
         <a href="#code-syntax" data-view="code" aria-keyshortcuts="2">Code syntax (2)</a>
       </nav>
-      <label class="toggle"><input type="checkbox" id="darkmode" aria-keyshortcuts="3"> Display Dark mode (3)</label>
+      <label class="toggle"><input type="checkbox" id="darkmode" aria-keyshortcuts="3"> Include Dark mode (3)</label>
     </div>
     <div class="bar-c">
       <div class="search">
@@ -239,7 +239,7 @@ button, input { font: inherit; color: inherit; }
     </div>
   </div>
 
-  <div class="legend" id="legend"><span><i></i>Light source</span><span><i class="dash"></i>Dark source (Display Dark mode)</span><span><i class="hot"></i>Route of the selected token</span><span><b class="mk">F</b> Mapped token that skips Alias</span><span>Faded = not used further down</span></div>
+  <div class="legend" id="legend"><span><i></i>Light source</span><span><i class="dash"></i>Dark source (Include Dark mode)</span><span><i class="hot"></i>Route of the selected token</span><span><b class="mk">F</b> Mapped token that skips Alias</span><span>Faded = not used further down</span></div>
 
   <section id="v-waterfall" class="stage">
     <div class="pane">
@@ -268,7 +268,7 @@ button, input { font: inherit; color: inherit; }
       <button type="button" class="cs-all" id="cs-all">Copy all</button>
     </div>
     <div class="cs-warn" id="cs-warn" hidden></div>
-    <div class="cs-note" id="cs-note" hidden>Light only. Tick <b>Display Dark mode (3)</b> to include the Dark values.</div>
+    <div class="cs-note" id="cs-note" hidden>Light only. Tick <b>Include Dark mode (3)</b> to add the Dark values.</div>
     <div class="cs-body">
       <nav class="cs-tree" id="cs-tree" aria-label="Tiers and folders"></nav>
       <div class="cs-prev">
@@ -481,7 +481,7 @@ button, input { font: inherit; color: inherit; }
     document.querySelectorAll("#cs-platform button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.platform));
     document.querySelectorAll("#cs-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.mode));
     document.querySelectorAll("#cs-file button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.file));
-    const withDark = mode === "dark"; // follows the header's Display Dark mode checkbox
+    const withDark = mode === "dark"; // follows the header's Include Dark mode checkbox
     $("#cs-file").hidden = !(withDark && cs.platform === "android" && cs.mode === "defs");
     $("#cs-note").hidden = withDark || cs.mode !== "defs";
     const dups = CSX.duplicates(cs.model, cs.platform);
@@ -559,7 +559,7 @@ button, input { font: inherit; color: inherit; }
   function setDark(on) { mode = on ? "dark" : "light"; $("#darkmode").checked = on; if (!on && sel && sel[0] === "D") sel = "M" + sel.slice(1);
     try { localStorage.setItem("wf2-mode", mode); } catch (x) {} buildFall(); renderTrace(); if (view === "code") renderCode(); }
   $("#darkmode").addEventListener("change", e => setDark(e.target.checked));
-  // hotkeys: 1 Waterfall, 2 Problems, 3 Display Dark mode, Esc clear selection (ignored while typing in a field)
+  // hotkeys: 1 Waterfall, 2 Code syntax, 0 Problems, 3 Include Dark mode, S search, Esc clear (selection, or search on Code syntax) (ignored while typing in a field)
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") { $("#hits").hidden = true; if (document.activeElement === $("#q")) $("#q").blur();
       if (view === "code") { if ($("#q").value) { $("#q").value = ""; renderCode(); } return; } // Code syntax page: Esc clears the search
