@@ -83,7 +83,7 @@ The export is read only. **Never change variables in Figma as part of work on th
 - "Show all connections" has no hotkey and is off by default.
 
 **Problems page**
-- Two groups: **Problems** first, then **Notes**. Notes are listed for reference and are not issues. "Mapped tokens that skip Alias" lives under Notes, with a neutral grey count and a neutral "skips alias" tag in the trace panel.
+- Two groups: **Problems** first, then **Notes**. Notes are listed for reference and are not issues. "Mapped tokens that skip Alias" lives under Notes, with a neutral grey count and a neutral "skips alias" tag in the trace panel. "Utility red, orange, green and purple use the same values in Light and Dark" is also a Notes section (20 tokens: 8 in Mapped utility, 12 in components/utility). Those tokens still count under Dark = Light; the user calls it a known inconsistency, so don't suggest fixing it.
 - One long page scroll, with no scrolling inside sections.
 - Tokens appear in cards per folder that wrap responsively; duplicate code syntax gets one card per shared value.
 - "Foundation colors not used" is not a problem, so it's not listed.

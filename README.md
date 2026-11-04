@@ -35,7 +35,7 @@ Live page: https://harald-skogland.github.io/waterfall/
 - missing code syntax
 - aliases no mapped token uses
 
-A **Notes** group below lists, for reference only, mapped tokens that skip Alias.
+A **Notes** group below lists, for reference only, mapped tokens that skip Alias and the utility colors that use the same values in Light and Dark.
 
 ## Project layout
 
