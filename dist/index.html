@@ -61,10 +61,12 @@ button, input { font: inherit; color: inherit; }
 .tabs .n { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 400; margin-left: 4px; }
 .search { position: relative; flex: 0 1 280px; min-width: 160px; }
 .search input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
-.hits { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; right: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; max-height: 320px; overflow: auto; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
-.hits button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px; cursor: pointer; }
+.hits { position: absolute; z-index: 5; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); width: min(640px, calc(100vw - 32px)); max-height: 420px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: auto; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.hits button { display: flex; gap: 8px; align-items: flex-start; width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px; cursor: pointer; }
 .hits button:hover, .hits button:focus-visible { background: var(--sunk); }
 .hits .t { color: var(--muted); font-weight: 600; width: 14px; }
+.hits button .sw { flex: none; margin-top: 1px; }
+.hits button span:last-child { min-width: 0; word-break: break-word; }
 .clear { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
 .legend { color: var(--muted); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
 .legend i { display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--link); vertical-align: middle; margin-right: 4px; }
