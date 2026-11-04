@@ -131,6 +131,13 @@
     throw new Error("unknown platform " + platform);
   }
 
+  // search, same as the waterfall's: every term (a leading # is ignored) must appear in the name, a code syntax, or the Light/Dark hex
+  function matches(model, t, terms) {
+    const hex = [resolve(model, t.L, false), t.D != null ? resolve(model, t.D, true) : ""].map(h => h.slice(1, 7));
+    const hay = [t.name, t.web, t.android, t.ios, ...hex].join(" ").toLowerCase();
+    return terms.every(x => hay.includes(x.replace(/^#/, "").toLowerCase()));
+  }
+
   // names shared by more than one token on a platform (those won't build on Android/iOS)
   function duplicates(model, platform) {
     const by = {};
@@ -138,6 +145,6 @@
     return Object.entries(by).filter(([, keys]) => keys.length > 1).map(([name, keys]) => ({ name, keys }));
   }
 
-  const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines, duplicates, IOS_HELPERS };
+  const api = { buildModel, resolve, namesLines, toText, parse, nameFor, darkKeys, defLines, duplicates, matches, IOS_HELPERS };
   if (typeof module !== "undefined" && module.exports) module.exports = api; else root.CodeSyntax = api;
 })(this);

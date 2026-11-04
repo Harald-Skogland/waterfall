@@ -97,3 +97,12 @@ test("duplicates are detected", () => {
   const m2 = structuredClone(m); m2.tokens[1].web = m2.tokens[0].web;
   assert.equal(CS.duplicates(m2, "web").length, 1);
 });
+
+// ---------- Final fix: search on the Code syntax page matches like the waterfall search ----------
+test("matches: hex (with or without #) and code syntax", () => {
+  const grey = m.byKey[key("grey/100", "Foundation")];
+  assert.ok(CS.matches(m, grey, ["#141414"]));
+  assert.ok(CS.matches(m, grey, ["grey_100"]));
+  assert.ok(CS.matches(m, m.byKey[key("text/default/body")], ["ececec"]));  // its Dark value
+  assert.equal(CS.matches(m, grey, ["zzz"]), false);
+});

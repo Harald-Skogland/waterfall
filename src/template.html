@@ -446,8 +446,7 @@ button, input { font: inherit; color: inherit; }
   const CSX = window.CodeSyntax, cs = { model: CSX.buildModel(window.WATERFALL), platform: "web", mode: "names", file: "light", sel: { tier: "Mapped", path: "" }, open: new Set(["Mapped|"]), lines: [], hl: null };
   try { const p = localStorage.getItem("wf2-cs-platform"), md = localStorage.getItem("wf2-cs-mode"); if (["web", "android", "ios"].includes(p)) cs.platform = p; if (["names", "defs"].includes(md)) cs.mode = md; } catch (e) {}
   const csTerms = () => $("#q").value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const csMatch = (t, terms) => { const hay = [t.name, t.web, t.android, t.ios].join(" ").toLowerCase(); return terms.every(x => hay.includes(x)); };
-  const csTokens = () => { const terms = csTerms(); return terms.length ? cs.model.tokens.filter(t => csMatch(t, terms)) : cs.model.tokens; };
+  const csTokens = () => { const terms = csTerms(); return terms.length ? cs.model.tokens.filter(t => CSX.matches(cs.model, t, terms)) : cs.model.tokens; };
   const inSel = (t, s) => t.tier === s.tier && (!s.path || t.folder === s.path || t.folder.startsWith(s.path + "/"));
   function csTree(list) { // nested folder nodes per tier, counted from the (filtered) token list
     return cs.model.tiers.map(tier => { const root = { path: "", kids: new Map(), n: 0 };
@@ -458,6 +457,8 @@ button, input { font: inherit; color: inherit; }
       return { tier: tier.name, root }; }).filter(x => x.root.n); }
   function renderCode() {
     const list = csTokens(), tree = csTree(list), filtering = csTerms().length > 0;
+    // while searching, if the selected folder has no hits, move to the first folder that has some
+    if (filtering && list.length && !list.some(t => inSel(t, cs.sel))) { const f = list[0]; cs.sel = { tier: f.tier, path: f.folder }; }
     document.querySelectorAll("#cs-platform button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.platform));
     document.querySelectorAll("#cs-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.mode));
     document.querySelectorAll("#cs-file button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === cs.file));
@@ -498,7 +499,7 @@ button, input { font: inherit; color: inherit; }
   function openInCode(k, platform) {
     const t = cs.model.byKey[k[0] === "D" ? "M" + k.slice(1) : k]; if (!t) return;
     cs.platform = platform; cs.mode = "names";
-    try { localStorage.setItem("wf2-cs-platform", platform); localStorage.setItem("wf2-cs-mode", "names"); } catch (e) {}
+    try { localStorage.setItem("wf2-cs-platform", platform); } catch (e) {} // Names for this visit only: the stored mode stays
     $("#q").value = ""; cs.sel = { tier: t.tier, path: t.folder }; cs.hl = t.k;
     const segs = t.folder ? t.folder.split("/") : [], skip = t.tier === "Components" ? 1 : 0;
     cs.open.add(t.tier + "|"); for (let i = skip + 1; i <= segs.length; i++) cs.open.add(t.tier + "|" + segs.slice(0, i).join("/"));
