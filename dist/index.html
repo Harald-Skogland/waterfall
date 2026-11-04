@@ -1,0 +1,749 @@
+<title>Scarlet Token Waterfall</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&family=Newsreader:opsz,wght@6..72,500&display=swap">
+<style>
+/* Layout: a left-to-right waterfall (Foundation → generic Alias → multipurpose Alias → Mapped) with links drawn behind the columns; a trace panel fixed to the right edge (bottom sheet on phones). */
+:root {
+  --bg: #FBF7F6; --panel: #FFFFFF; --sunk: #F4EDEC; --ink: #1D1716; --muted: #6B5F5E; --line: #E9DFDE;
+  --link: #BFB2B1; --hot: #B3140E; --hot-soft: #FBE1E0; --focus: #5E1077;
+  --flag-warn-bg: #FBEBD3; --flag-warn: #7A4A05; --flag-crit-bg: #FBE1E0; --flag-crit: #8E1410; --flag-info-bg: #EDE3F7; --flag-info: #4D1A66;
+  --check-a: #E9E2E1; --check-b: #FFFFFF; --black: #000000;
+  --f-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --f-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --panel-w: 380px;
+}
+/* Single light theme by choice: the page always renders light, whatever the viewer's theme. */
+:root { color-scheme: light; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 13px/1.4 var(--f-ui); }
+html, body { height: 100%; }
+.page { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 16px; display: flex; flex-direction: column; gap: 14px; height: 100%; }
+.page > * { flex: none; }
+.stage { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w); gap: 16px; }
+#v-problems { flex: 1 1 auto; min-height: 0; overflow: auto; }
+@media (max-width: 1100px) { :root { --panel-w: 300px; } }
+h1 { font: 500 32px/1.1 var(--f-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font: 500 19px/1.2 var(--f-display); margin: 0; }
+.sub { color: var(--muted); margin: 6px 0 0; }
+.eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+code, .mono { font-family: var(--f-mono); font-size: 12px; }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tabs, .seg { display: inline-flex; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.tabs a, .seg button { border: 0; background: none; padding: 6px 12px; border-radius: 6px; color: var(--muted); text-decoration: none; cursor: pointer; font-weight: 500; }
+.tabs a[aria-current="page"], .seg button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.tabs .n { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.search { position: relative; flex: 1 1 240px; min-width: 0; max-width: 420px; }
+.search input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.hits { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; right: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; max-height: 320px; overflow: auto; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.hits button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px; cursor: pointer; }
+.hits button:hover, .hits button:focus-visible { background: var(--sunk); }
+.hits .t { color: var(--muted); font-weight: 600; width: 14px; }
+.clear { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.legend { color: var(--muted); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--link); vertical-align: middle; margin-right: 4px; }
+.legend i.hot { border-color: var(--hot); }
+.legend i.dash { border-top-style: dashed; }
+
+.pane { position: relative; height: 100%; min-height: 0; min-width: 0; }
+.scroller { overflow: auto; height: 100%; min-height: 0; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overscroll-behavior: contain; cursor: grab; padding-top: 46px; }
+.scroller.panning { cursor: grabbing; user-select: none; }
+.sizer { position: relative; }
+.fall { transform-origin: 0 0; }
+.zoom { position: absolute; z-index: 4; right: 14px; bottom: 14px; display: flex; align-items: center; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+.zoom button { border: 0; background: none; min-width: 30px; height: 28px; border-radius: 5px; cursor: pointer; font-weight: 500; padding: 0 8px; }
+.zoom button:hover { background: var(--sunk); }
+.zoom button[aria-pressed="true"] { background: var(--sunk); color: var(--ink); }
+.zoom output { min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+.zoom .sep { width: 1px; height: 18px; background: var(--line); margin: 0 3px; }
+.fall { position: relative; display: grid; grid-template-columns: 170px 190px 250px 280px 300px; column-gap: 130px; padding: 16px 20px 24px; width: max-content; align-items: start; }
+.fall svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.fall svg path { fill: none; stroke: var(--link); stroke-width: 1; opacity: .55; display: none; }
+.fall svg path.dk { stroke-dasharray: 3 3; }
+.fall.showall svg path { display: inline; }
+.fall.focus svg path { display: none; }
+.fall.focus svg path.on { display: inline; stroke: var(--hot); stroke-width: 1.6; opacity: 1; }
+.toggle { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; user-select: none; color: var(--ink); }
+.toggle input { margin: 0; accent-color: var(--hot); }
+/* column headings live outside the zoomed content so they stay put and line up at any zoom */
+.heads { position: absolute; z-index: 3; top: 1px; left: 1px; right: 1px; height: 46px; overflow: hidden; pointer-events: none; background: var(--panel); border-bottom: 1px solid var(--line); border-radius: 10px 10px 0 0; }
+.head { position: absolute; top: 0; height: 46px; padding: 7px 8px 0; display: grid; align-content: start; gap: 1px; min-width: 0; }
+.head b { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.head span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.head.dark { background: var(--black); color: #ECECEC; }
+.head.dark span { color: #CFC5C4; }
+.col { position: relative; z-index: 1; display: grid; gap: 1px; min-width: 0; }
+.colhead { position: sticky; top: 0; background: var(--panel); padding-bottom: 8px; z-index: 2; }
+.colhead .eyebrow { color: var(--ink); }
+.colhead span { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.grp { font-size: 11px; color: var(--muted); font-weight: 600; padding: 10px 4px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.node { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 5px; cursor: pointer; border: 0; background: none; text-align: left; width: 100%; min-width: 0; }
+.node:hover { background: var(--sunk); }
+.node .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.node.unused .nm { color: var(--muted); opacity: .6; }
+.fall.focus .node .nm { opacity: .3; }
+.fall.focus .node.on .nm { opacity: 1; color: var(--ink); }
+.fall.focus .node.sel { background: var(--hot-soft); box-shadow: inset 0 0 0 1px var(--hot); }
+.node .mk { font-size: 10px; color: var(--flag-crit); font-weight: 600; }
+/* token names: a softer ink on white; selected route goes back to full ink */
+.fall { --node-ink: #7A6E6D; }
+.col:not(.darkcol) .grp { color: #141414; } /* folder headers: grey/100 */
+.col.darkcol .grp { color: #ECECEC; } /* reversed on black: folder headers grey/10 */
+.node .nm { color: var(--node-ink); }
+/* Dark mode: Mapped columns sit on black (basic/black) with light text, like the tokens' own Dark mode */
+/* Light + Dark: each Mapped column gets a Dark twin on its right, on black (basic/black) with light text */
+.col.darkcol { --node-ink: #A39796; --on-black: #ECECEC; --on-black-muted: #CFC5C4; background: var(--black); color: var(--on-black); border-radius: 0; padding: 0 6px 10px; margin: -16px 0 -24px -112px; padding-top: 16px; }
+.fall.focus .col.darkcol .node .nm { opacity: .62; }
+.fall.focus .col.darkcol .node.on .nm { opacity: 1; color: var(--on-black); }
+.col.darkcol .grp, .col.darkcol .node.unused .nm { color: var(--on-black-muted); }
+.col.darkcol .node:hover { background: #2A2221; }
+.fall.focus .col.darkcol .node.sel { background: #4A1A17; box-shadow: inset 0 0 0 1px #FF8A84; }
+.col.darkcol .mk { color: #FF8A84; }
+.sw { width: 14px; height: 14px; flex: none; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.14); display: inline-block; background-image: linear-gradient(var(--c), var(--c)), conic-gradient(var(--check-a) 25%, var(--check-b) 0 50%, var(--check-a) 0 75%, var(--check-b) 0); background-size: 100% 100%, 6px 6px; }
+.dk { background: var(--black); padding: 2px; border-radius: 4px; display: inline-flex; flex: none; }
+.sw.lg { width: 32px; height: 32px; border-radius: 7px; }
+.dk.lg { padding: 4px; border-radius: 9px; }
+
+/* fixed trace panel */
+.trace { height: 100%; min-height: 0; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: auto; overscroll-behavior: contain; padding: 18px; display: grid; gap: 16px; align-content: start; }
+@media (max-width: 600px) { .page { height: auto; } .stage { grid-template-columns: minmax(0, 1fr); } .scroller { height: 65vh; } .trace { height: auto; } }
+.trace .name { font: 500 20px/1.2 var(--f-display); word-break: break-word; }
+.trace .path { color: var(--muted); font-size: 12px; word-break: break-word; }
+.kv { display: grid; gap: 5px; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.hex { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.chain { display: grid; }
+.step { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 10px; align-items: center; padding: 5px 0; position: relative; }
+.step + .step::before { content: ""; position: absolute; left: 10px; top: -5px; height: 10px; border-left: 1px dashed var(--muted); }
+.step .sw { width: 22px; height: 22px; border-radius: 5px; }
+.step small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; }
+.lnk { color: var(--ink); text-decoration: none; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 0; cursor: pointer; text-align: left; word-break: break-word; }
+.lnk:hover { border-color: var(--ink); }
+.feeds { display: flex; flex-wrap: wrap; gap: 5px; }
+.feeds button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 3px 7px; font-size: 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.copy { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; margin-left: 6px; }
+.flags { display: flex; gap: 4px; flex-wrap: wrap; }
+.flag { font-size: 11px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; font-weight: 500; }
+.flag.warn { background: var(--flag-warn-bg); color: var(--flag-warn); }
+.flag.crit { background: var(--flag-crit-bg); color: var(--flag-crit); }
+.flag.info { background: var(--flag-info-bg); color: var(--flag-info); }
+.muted { color: var(--muted); }
+.same { color: var(--muted); font-style: italic; }
+
+.problems { display: grid; gap: 14px; }
+.prob { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; }
+.prob header { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+.prob p { margin: 0; color: var(--muted); max-width: 75ch; }
+.prob .feeds { max-height: none; overflow: visible; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; align-items: start; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 10px 8px; display: grid; gap: 1px; min-width: 0; background: var(--panel); }
+.card h3 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: #141414; word-break: break-word; }
+.card button { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; border: 0; background: none; text-align: left; padding: 3px 4px; border-radius: 5px; cursor: pointer; }
+.card button:hover { background: var(--sunk); }
+.card button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; color: #7A6E6D; }
+.card button:hover span { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+
+<div class="page">
+  <header>
+    <h1>Scarlet Token Waterfall</h1>
+    <p class="sub" id="snap"></p>
+  </header>
+
+  <div class="bar">
+    <nav class="tabs" id="tabs" aria-label="Views">
+      <a href="#waterfall" data-view="waterfall" aria-keyshortcuts="1">Waterfall (1)</a>
+      <a href="#problems" data-view="problems" aria-keyshortcuts="2">Problems (2)</a>
+    </nav>
+    <label class="toggle"><input type="checkbox" id="darkmode" aria-keyshortcuts="3"> Display Dark mode (3)</label>
+    <div class="search">
+      <input type="search" id="q" placeholder="Find a token, hex or code syntax" aria-label="Find a token" autocomplete="off">
+      <div class="hits" id="hits" hidden></div>
+    </div>
+    <button type="button" class="clear" id="clear" aria-keyshortcuts="Escape">Clear selection (Esc)</button>
+    <label class="toggle"><input type="checkbox" id="showall"> Show all connections</label>
+  </div>
+
+  <div class="legend" id="legend"><span><i></i>Light source</span><span><i class="dash"></i>Dark source (Display Dark mode)</span><span><i class="hot"></i>Route of the selected token</span><span><b class="mk">F</b> Mapped token that skips Alias</span><span>Faded = not used further down</span></div>
+
+  <section id="v-waterfall" class="stage">
+    <div class="pane">
+      <div class="heads" id="heads" aria-hidden="true"></div>
+      <div class="scroller" id="scroller"><div class="sizer" id="sizer"><div class="fall" id="fall"><svg id="links" aria-hidden="true"></svg></div></div></div>
+      <div class="zoom" role="group" aria-label="Zoom">
+        <button type="button" id="z-out" aria-label="Zoom out">−</button>
+        <output id="z-val" aria-live="polite">100%</output>
+        <button type="button" id="z-in" aria-label="Zoom in">+</button>
+        <span class="sep"></span>
+        <button type="button" id="z-fit" title="Fit the four columns to the pane width">Fit</button>
+        <button type="button" id="z-100">100%</button>
+        <span class="sep"></span>
+        <button type="button" id="z-wheel" aria-pressed="true" title="When on, the mouse wheel zooms. When off, it scrolls; hold Ctrl or ⌘ to zoom.">Wheel zoom</button>
+      </div>
+    </div>
+    <aside class="trace" id="trace" aria-live="polite"></aside>
+  </section>
+  <section id="v-problems" class="problems" hidden></section>
+</div>
+
+<script>
+window.WATERFALL = {
+snapshot: "Gaia UI Kit – Scarlet Playground · 4 Nov 2026",
+F: [["basic/white","#FFFFFF"],["basic/black","#000000"],["grey/10","#ECECEC"],["grey/20","#CDCDCD"],["grey/30","#B0B0B0"],["grey/40","#949494"],["grey/50","#7E7E7E"],["grey/60","#676767"],["grey/70","#4D4D4D"],["grey/80","#393939"],["grey/90","#282828"],["grey/100","#141414"],["neutral/10","#F3E9E9"],["neutral/20","#D8CACA"],["neutral/30","#BBADAD"],["neutral/40","#9F9191"],["neutral/50","#847C7C"],["neutral/60","#6E6565"],["neutral/70","#574A4A"],["neutral/80","#403736"],["neutral/90","#302626"],["neutral/100","#181312"],["red/10","#FDE6E6"],["red/20","#F6BFBE"],["red/30","#F99493"],["red/40","#F66462"],["red/50","#FB0A0A"],["red/60","#C92116"],["red/70","#99170F"],["red/80","#760A06"],["red/90","#5A0000"],["red/100","#330000"],["orange/10","#FDE7DC"],["yellow/10","#F6EAD4"],["yellow/20","#E4CA9B"],["yellow/30","#D0AB65"],["yellow/40","#BF8B23"],["yellow/50","#A27624"],["yellow/60","#895F10"],["yellow/70","#67470D"],["yellow/80","#4E3407"],["yellow/90","#37250C"],["yellow/100","#1D1204"],["orange/20","#F9C0A3"],["orange/30","#F59A68"],["orange/40","#EA7225"],["orange/50","#CA5F16"],["orange/60","#A74D10"],["orange/70","#7D3A0F"],["orange/80","#5D2B0D"],["orange/90","#441E07"],["orange/100","#240E05"],["lime/10","#D1FB53"],["lime/20","#B6DA3C"],["lime/30","#9DBC3A"],["lime/40","#829F26"],["lime/50","#6B8815"],["lime/60","#557011"],["lime/70","#3F540A"],["lime/80","#2F3E11"],["lime/90","#1E2D06"],["lime/100","#0D1702"],["green/10","#D0F4DB"],["green/20","#AAD8B7"],["green/30","#72C187"],["green/40","#30A956"],["green/50","#2E8F4D"],["green/60","#257541"],["green/70","#1A5831"],["green/80","#0B4221"],["green/90","#0B2F18"],["green/100","#04180A"],["teal/10","#CCF3F1"],["cyan/10","#D7EFFC"],["cyan/20","#A6D4E9"],["cyan/30","#6ABADE"],["cyan/40","#329FC9"],["cyan/50","#2987AC"],["cyan/60","#146F91"],["cyan/70","#14536C"],["cyan/80","#193D4D"],["cyan/90","#0D2C38"],["cyan/100","#06161D"],["teal/20","#9DD8D5"],["teal/30","#69BEBB"],["teal/40","#3CA3A0"],["teal/50","#188C89"],["teal/60","#23726F"],["teal/70","#115654"],["teal/80","#0B403E"],["teal/90","#0E2D2D"],["teal/100","#051716"],["blue/10","#DEEDFD"],["basic/paper","#FFFAF9"],["blue/20","#B5D0ED"],["blue/30","#84B4E9"],["blue/40","#4D97EA"],["blue/50","#307FD8"],["blue/60","#2266BE"],["blue/70","#0A48A5"],["blue/80","#0B3679"],["blue/90","#05265A"],["blue/100","#031330"],["indigo/10","#E8EBF7"],["indigo/20","#C3CBF8"],["indigo/30","#9FABFB"],["indigo/40","#808AFA"],["indigo/50","#686EF6"],["indigo/60","#554BF5"],["indigo/70","#4419E2"],["indigo/80","#301AA5"],["indigo/90","#211379"],["indigo/100","#0F0A41"],["purple/10","#F5E6FF"],["purple/20","#E0C2F6"],["purple/30","#D09BF5"],["purple/40","#BA72FF"],["purple/50","#AC56E0"],["purple/60","#953CC3"],["purple/70","#791D9E"],["purple/80","#5E1077"],["purple/90","#41154B"],["purple/100","#240828"],["pink/10","#FAE6F0"],["pink/20","#FEB8DD"],["pink/30","#F78ECB"],["pink/40","#F05CB9"],["pink/50","#DC38A5"],["pink/60","#B72B87"],["pink/70","#892265"],["pink/80","#67194B"],["pink/90","#471635"],["pink/100","#250A1B"],["rose/10","#FFE5E9"],["rose/20","#FDBBC6"],["rose/30","#FB91A5"],["rose/40","#F85E86"],["rose/50","#F0226C"],["rose/60","#C51F58"],["rose/70","#961542"],["rose/80","#701230"],["rose/90","#520C22"],["rose/100","#2C0610"]],
+A: [["basic/black","F1","var(--ga-color-brand-basic-black)",""],["basic/white","F0","var(--ga-color-brand-basic-white)",""],["basic/paper","F93","var(--ga-color-brand-basic-paper)",""],["neutral/10","F12","var(--ga-color-brand-neutral-10)",""],["neutral/20","F13","var(--ga-color-brand-neutral-20)",""],["neutral/30","F14","var(--ga-color-brand-neutral-30)",""],["neutral/40","F15","var(--ga-color-brand-neutral-40)",""],["neutral/50","F16","var(--ga-color-brand-neutral-50)",""],["neutral/60","F17","var(--ga-color-brand-neutral-60)",""],["neutral/70","F18","var(--ga-color-brand-neutral-70)",""],["neutral/80","F19","var(--ga-color-brand-neutral-80)",""],["neutral/90","F20","var(--ga-color-brand-neutral-90)",""],["neutral/100","F21","var(--ga-color-brand-neutral-100)",""],["primary/10","F22","var(--ga-color-primary-10)",""],["primary/20","F23","var(--ga-color-primary-20)",""],["primary/30","F24","var(--ga-color-primary-30)",""],["primary/40","F25","var(--ga-color-primary-40)",""],["primary/50","F26","var(--ga-color-primary-50)",""],["primary/60","F27","var(--ga-color-primary-60)",""],["primary/70","F28","var(--ga-color-primary-70)",""],["primary/80","F29","var(--ga-color-primary-80)",""],["primary/90","F30","var(--ga-color-primary-90)",""],["primary/100","F31","var(--ga-color-primary-100)",""],["secondary/10","F113","var(--ga-color-secondary-10)",""],["secondary/20","F114","var(--ga-color-secondary-20)",""],["secondary/30","F115","var(--ga-color-secondary-30)",""],["secondary/40","F116","var(--ga-color-secondary-40)",""],["secondary/50","F117","var(--ga-color-secondary-50)",""],["secondary/60","F118","var(--ga-color-secondary-60)",""],["secondary/70","F119","var(--ga-color-secondary-70)",""],["secondary/80","F120","var(--ga-color-secondary-80)",""],["secondary/90","F121","var(--ga-color-secondary-90)",""],["secondary/100","F122","var(--ga-color-secondary-100)",""],
+["surface/primary","A1","",""],["surface/page","A2","",""],["surface/menu-hover","A2","","Hover background for menu and navigation items."],["surface/active","A24","","Surface for the active item in a selection set (for example the current row). No border; text uses text/body."],["surface/disabled","A3","","Background for disabled interactive elements."],["surface/disable-selected","A4","","Background for disabled selected elements."],["surface/primary-action","A21","","Background for primary action buttons."],["surface/primary-action-hover","A20","","Background for hovered primary action buttons."],["surface/secondary-action-hover","A2","","Background for hovered secondary action buttons."],["surface/selected","A23","","Background for selected items."],["surface/selected-emphasis","A29","","Selected fill for small controls, such as checkboxes and radio buttons, where a border/selected outline is not enough to show the state. Use white content on it. For larger selected areas use surface/selected."],["surface/selected-hover","A24","",""],["surface/selected-pressed","A25","",""],["surface/primary-action-pressed","A19","",""],["surface/secondary-action","A1","",""],["surface/secondary-action-pressed","A3","",""],
+["border/tertiary","A3","",""],["border/primary","A7","",""],["border/secondary","A4","",""],["border/disabled","A4","","Border color for disabled elements."],["border/focus","A30","","Border color for focused interactive elements."],["border/disable-selected","A50","","Border for disabled selected controls (on surface/disable-selected)."],
+["text/disabled","A7","",""],["text/disable-selected","A4","",""],["text/secondary","A10","",""],["text/headings","A22","",""],["text/body","F11","",""],["text/action","A21","","Text color for interactive elements and links."],["text/on-primary-action","A3","","Text color displayed on action button surfaces."],["text/link-visited","A29","","Text color for visited links."],["text/menu","A59","","Text color for navigation menu items."],["text/action-pressed","A20","",""],["text/on-secondary-action","A21","",""],["text/action-hover","A20","",""],["text/on-secondary-action-hover","A19","",""],["text/on-secondary-action-pressed","A20","",""],["text/on-disabled","A7","",""],["text/on-disable-selected","A6","",""],["text/link","A19","",""],
+["icon/disabled","A3","","Icon color for disabled elements."],["icon/on-disable-selected","A6","","Icon on a disabled selected control (checkbox, radio, toggle)."],["icon/primary","A22","","Standard icon color for general use."],["icon/brand","A21","","Brand mark color (logo ghost button, logo symbols)."],["icon/on-primary-action","A3","","Icon color displayed on primary surfaces."],["icon/on-secondary-action","A21","","Icon color displayed on action surfaces."],["icon/action","A21","","Icon color for interactive elements."],["icon/action-hover","A20","","Icon color for hovered interactive elements."],["icon/action-pressed","A20","","Icon on pressed actions."],["icon/visited","A29","","Icon color for visited links."],["icon/on-disabled","A7","","Icon color on disabled surfaces."],["icon/disable-selected","A4","","Icon on a disabled selected control (checkbox, radio, toggle)."],["icon/link","A22","",""],
+["alert/error/default","A18","",""],["alert/error/accent","A13","",""],["alert/warning/default","F38","",""],["alert/success/default","F67","",""],["alert/success/accent","F62","",""],["alert/warning/accent","F32","",""],["alert/information/default","A28","",""],["alert/information/accent","A23","",""],
+["utility/red","A16","",""],["utility/red-accent","A13","",""],["utility/lime","F55","",""],["utility/lime-accent","F52","",""],["utility/green","F65","",""],["utility/green-accent","F62","",""],["utility/teal","F85","",""],["utility/teal-accent","F72","",""],["utility/blue","F96","",""],["utility/blue-accent","F92","",""],["utility/purple","A26","",""],["utility/purple-accent","A23","",""],["utility/pink","F126","",""],["utility/pink-accent","F123","",""],["utility/grey","F5","",""],["utility/grey-accent","F2","",""],["utility/orange","F45","",""],["utility/orange-accent","F32","",""],
+["graph/categorical/01","A27","",""],["graph/categorical/02","F137","",""],["graph/categorical/03","F109","",""],["graph/categorical/04","F78","",""],["graph/categorical/05","F69","",""],["graph/categorical/06","F130","",""],["graph/categorical/07","F37","",""],["graph/categorical/08","F49","",""],["graph/categorical/09","F101","",""],["graph/categorical/10","F57","",""],["graph/sequential/01","F72","",""],["graph/sequential/02","F83","",""],["graph/sequential/03","F84","",""],["graph/sequential/04","F85","",""],["graph/sequential/05","F86","",""],["graph/sequential/06","F87","",""],["graph/sequential/07","F88","",""],["graph/sequential/08","F89","",""],["graph/sequential/09","F90","",""],["graph/sequential/10","F91","",""],["graph/diverging/01","A21","",""],["graph/diverging/02","A20","",""],["graph/diverging/03","A19","",""],["graph/diverging/04","A18","",""],["graph/diverging/05","A17","",""],["graph/diverging/06","A16","",""],["graph/diverging/07","A15","",""],["graph/diverging/08","A3","",""],["graph/diverging/09","F84","",""],["graph/diverging/10","F85","",""],["graph/diverging/11","F86","",""],["graph/diverging/12","F87","",""],["graph/diverging/13","F88","",""],["graph/diverging/14","F89","",""],["graph/diverging/15","F90","",""],
+["overlay/light","#6C6C6C91","",""],["utility/indigo","F106","",""],["utility/indigo-accent","F103","",""],["utility/rose","F136","",""],["utility/rose-accent","F133","",""],["utility/yellow","F36","",""],["utility/yellow-accent","F33","",""],["utility/cyan","F76","",""],["utility/cyan-accent","F73","",""],["utility/neutral","A6","",""],["utility/neutral-accent","A3","",""]],
+M: [
+["multi-purpose/surface/inverse","A22","A13","var(--ga-color-surface-inverse)","Dark surface for tooltips (with text/on-control)."],
+["multi-purpose/surface/default/page","A34","A12","var(--ga-color-surface-page)","Page background behind all content (Paper)."],
+["multi-purpose/surface/default/primary","A33","A11","var(--ga-color-surface-primary)","Default container fill: cards, panels, fields, table cells. Also knockout rings that must match the container."],
+["multi-purpose/surface/actions/primary-action","A39","A13","var(--ga-color-surface-action)","Fill of primary buttons and other Red 90 actions (selected chip, segment, day, current menu item)."],
+["multi-purpose/surface/actions/primary-action-hover","A40","A14","var(--ga-color-surface-action-hover)","Hover fill for surface/action."],
+["multi-purpose/surface/actions/primary-action-pressed","A46","A15","var(--ga-color-surface-action-pressed)","Pressed fill for surface/action."],
+["multi-purpose/surface/actions/action-inverted","A3","A10","var(--ga-color-surface-action-inverted)","Light action fill used on a dark or Red surface (brand notification frame, inverted badge)."],
+["multi-purpose/surface/actions/secondary-action","A47","A47","",""],
+["multi-purpose/surface/actions/secondary-action-hover","A41","A12","var(--ga-color-surface-hover-subtle)","Hover fill for controls on White: secondary, ghost and transparent buttons, fields, interactive tags. On Paper use surface/primary instead."],
+["multi-purpose/surface/actions/secondary-action-pressed","A48","A10","var(--ga-color-surface-pressed)","Pressed fill for buttons and filter chips."],
+["multi-purpose/surface/interaction/hover","A3","A10","var(--ga-color-surface-hover)","Hover fill for rows, menu items, list items, segments and unchecked checkbox or radio."],
+["multi-purpose/surface/interaction/menu-hover","A35","A35","",""],
+["multi-purpose/surface/interaction/row-pressed","A4","A12","var(--ga-color-surface-row-pressed)","Pressed row or card (list items, side navigation, contained list)."],
+["multi-purpose/surface/disabled/disabled","A37","A10","var(--ga-color-surface-disabled)","Fill of disabled controls and disabled fields."],
+["multi-purpose/surface/disabled/disable-selected","A38","A9","var(--ga-color-surface-disable-selected)","Fill of a control that is both selected and disabled (checked checkbox, selected chip, segment)."],
+["multi-purpose/surface/selected/card-selected","F62","F70","var(--ga-color-surface-selected)","Selected card and selectable item (green selection, D47)."],
+["multi-purpose/surface/selected/card-selected-hover","F63","F69","var(--ga-color-surface-selected-hover)","Hover on a selected card or item."],
+["multi-purpose/surface/selected/card-selected-pressed","F64","F68","var(--ga-color-surface-selected-pressed)","Pressed on a selected card or item."],
+["multi-purpose/surface/selected/selected","A42","A31","var(--ga-color-surface-row-selected)","Selected row in tables, lists and navigation (purple selection + bar). Also the middle of a date range."],
+["multi-purpose/surface/selected/selected-hover","A44","A30","var(--ga-color-surface-row-selected-hover)","Hover on a selected row."],
+["multi-purpose/surface/selected/selected-pressed","A45","A29","var(--ga-color-surface-row-selected-pressed)","Pressed on a selected row."],
+["multi-purpose/surface/selected/selected-emphasis","A43","A43","",""],
+["multi-purpose/surface/selected/active","A36","A36","",""],
+["multi-purpose/surface/control/control-checked","A21","A13","var(--ga-color-surface-control-checked)","Checked checkbox, radio and switch track."],
+["multi-purpose/surface/control/control-checked-hover","A20","A14","var(--ga-color-surface-control-checked-hover)","Hover on a checked control."],
+["multi-purpose/surface/control/control-checked-pressed","A19","A15","var(--ga-color-surface-control-checked-pressed)","Pressed on a checked control."],
+["multi-purpose/surface/control/control-checked-on-selected","F68","F64","var(--ga-color-surface-control-checked-on-selected)","Checked control inside a selected (green) card."],
+["multi-purpose/surface/control/control-checked-on-selected-hover","F69","F63","var(--ga-color-surface-control-checked-on-selected-hover)","Hover on a checked control inside a selected card."],
+["multi-purpose/surface/control/control-checked-on-selected-pressed","F70","F62","var(--ga-color-surface-control-checked-on-selected-pressed)","Pressed on a checked control inside a selected card."],
+["multi-purpose/surface/progress/progress","A21","A13","var(--ga-color-surface-progress)","Progress bar and loader indicator."],
+["multi-purpose/surface/progress/progress-2","A29","A25","var(--ga-color-surface-progress-2)","Second series in a stacked progress bar."],
+["multi-purpose/surface/progress/progress-track","A3","A10","var(--ga-color-surface-progress-track)","Progress bar and loader track (4px)."],
+["multi-purpose/surface/text-selection/selection","F52","F60","var(--ga-color-surface-selection)","Text selection highlight (Lime)."],
+["multi-purpose/surface/text-selection/selection-on-lime","A25","A28","var(--ga-color-surface-selection-on-lime)","Text selection highlight on Lime surfaces."],
+["multi-purpose/surface/raised/raised","A1","A10","var(--ga-color-surface-raised)","Popouts: menus, dropdowns, date pickers, modals, drawers, side navigation, context selector, feedback."],
+["multi-purpose/surface/raised/raised-hover","A3","A11","var(--ga-color-surface-raised-hover)","Hover row inside a popout."],
+["multi-purpose/surface/raised/raised-pressed","A4","A12","var(--ga-color-surface-raised-pressed)","Pressed row inside a popout."],
+["multi-purpose/surface/raised/raised-subtle","A2","A11","var(--ga-color-surface-raised-subtle)","Paper-coloured area inside a popout (e.g. a sticky footer)."],
+["multi-purpose/surface/overlay/overlay-hover","#33000040","#33000040","var(--ga-color-surface-overlay-hover)","Overlay on an image avatar or thumbnail on hover."],
+["multi-purpose/surface/overlay/overlay-disabled","#FFFFFFB2","#FFFFFFB2","var(--ga-color-surface-overlay-disabled)","Overlay on a disabled image avatar or thumbnail."],
+["multi-purpose/border/default/primary","A50","A6","var(--ga-color-border-primary)","Field and control edge (1px)."],
+["multi-purpose/border/default/secondary","A51","A9","var(--ga-color-border-subtle)","Card edge, dividers, table lines, keylines."],
+["multi-purpose/border/default/tertiary","A49","A10","var(--ga-color-border-tertiary)","Faint keyline; disabled field and avatar edge."],
+["multi-purpose/border/field/field-hover","A9","A4","var(--ga-color-border-field-hover)","Field edge on hover."],
+["multi-purpose/border/field/field-active","A21","A13","var(--ga-color-border-field-active)","Active (editing) field edge, 2px."],
+["multi-purpose/border/action/action","A7","A6","var(--ga-color-border-action)","Edge of secondary and transparent buttons, filter chips and interactive tags."],
+["multi-purpose/border/action/action-hover","A20","A14","var(--ga-color-border-action-hover)","Hover for border/action; checked-control hover."],
+["multi-purpose/border/action/action-selected","A21","A13","var(--ga-color-border-action-selected)","Selected action edge: selected tag, segment, checked checkbox and radio."],
+["multi-purpose/border/tags/control","A9","A4","var(--ga-color-border-control)","Unchecked checkbox, radio and switch edge; field and chip hover edge."],
+["multi-purpose/border/tags/muted","A7","A6","var(--ga-color-border-muted)","Muted badge edge; selected-disabled tag edge."],
+["multi-purpose/border/disabled/disabled","A52","A9","var(--ga-color-border-disabled)","Disabled edge."],
+["multi-purpose/border/disabled/disable-selected","A54","A54","",""],
+["multi-purpose/border/selected/selected","F68","F64","var(--ga-color-border-selected)","Selected card edge, 2px."],
+["multi-purpose/border/selected/row-selected","A29","A25","var(--ga-color-border-row-selected)","Selected row bar, 4px."],
+["multi-purpose/border/alerts/error","A85","F25","var(--ga-color-border-error)","Error edge: error field 2px, error tag, notification."],
+["multi-purpose/border/alerts/information","A91","F116","var(--ga-color-border-information)","Information edge: tag, notification, step bar."],
+["multi-purpose/border/alerts/warning","F46","F45","var(--ga-color-border-warning)","Warning edge: tag, notification."],
+["multi-purpose/border/alerts/success","A88","F65","var(--ga-color-border-success)","Success edge: tag, field, notification."],
+["multi-purpose/border/raised/subtle-raised","A4","A8","var(--ga-color-border-subtle-raised)","Edge of popouts: menus, dropdowns, modals, drawers."],
+["multi-purpose/border/focus/focus","A53","A24","var(--ga-color-focus-stroke)","Focus ring outer stroke, 2px."],
+["multi-purpose/text/default/headings","A58","A13","var(--ga-color-text-headings)","Display, headline, title and heading text; labels."],
+["multi-purpose/text/default/body","A59","F2","var(--ga-color-text-body)","Body and value text."],
+["multi-purpose/text/default/secondary","A57","A4","var(--ga-color-text-body-secondary)","Secondary text: descriptions, captions, meta, helper text, separators. AAA on every hover and selected fill (D287)."],
+["multi-purpose/text/actions/action","A60","A13","var(--ga-color-text-action)","Text of actions that are not links: secondary, ghost and transparent buttons, interactive tags, definition labels."],
+["multi-purpose/text/actions/action-hover","A66","A14","var(--ga-color-text-action-hover)","Hover for text/action."],
+["multi-purpose/text/disabled/disabled","A55","A6","var(--ga-color-text-disabled)","Disabled text (exempt from contrast)."],
+["multi-purpose/text/disabled/on-disabled","A69","A6","var(--ga-color-text-on-disabled)","Text on surface/disabled (exempt from contrast)."],
+["multi-purpose/text/alerts/error","F28","F23","var(--ga-color-text-error)","Error messages, error tag and badge labels, error step labels."],
+["multi-purpose/text/alerts/success","F68","F63","var(--ga-color-text-success)","Success messages, success tag and badge labels."],
+["multi-purpose/text/alerts/information","F119","F114","var(--ga-color-text-information)","Information tag and badge labels, current step label."],
+["multi-purpose/text/alerts/warning","F49","F43","var(--ga-color-text-warning)","Warning messages, warning tag and badge labels."],
+["multi-purpose/text/muted","A10","A4","var(--ga-color-text-muted)","Muted badge count. Same value as text/body-secondary."],
+["multi-purpose/text/placeholder","A9","A4","var(--ga-color-text-placeholder)","Field placeholder text."],
+["multi-purpose/text/link/link","A71","A14","var(--ga-color-text-link)","Links and breadcrumb links."],
+["multi-purpose/text/link/link-hover","A20","A13","var(--ga-color-text-link-hover)","Link on hover."],
+["multi-purpose/text/link/link-visited","A62","A24","var(--ga-color-text-link-visited)","Visited link (opt-in only)."],
+["multi-purpose/text/link/link-inverse","A1","A11","var(--ga-color-text-link-inverse)","Link on Red 90 / Red 100 surfaces."],
+["multi-purpose/text/link/link-muted","A10","A4","var(--ga-color-text-link-muted)","Low-emphasis link, same value as secondary text."],
+["multi-purpose/text/selection","F11","F2","var(--ga-color-text-selection)","Text colour inside a selection highlight."],
+["multi-purpose/icon/primary","A74","A13","var(--ga-color-icon-primary)","Default icon colour (Red 100)."],
+["multi-purpose/alert/error/accent","A86","F30","var(--ga-color-surface-error)","Error background: error tag, badge, notification frame, filled error field."],
+["multi-purpose/alert/error/default","A85","A85","",""],
+["multi-purpose/alert/warning/accent","A90","F50","var(--ga-color-surface-warning)","Warning background: warning tag, badge, notification frame."],
+["multi-purpose/alert/warning/default","A87","A87","",""],
+["multi-purpose/alert/success/accent","A89","F70","var(--ga-color-surface-success)","Success background: success tag, badge, notification frame, filled valid field."],
+["multi-purpose/alert/success/default","A88","A88","",""],
+["multi-purpose/alert/information/accent","A92","F121","var(--ga-color-surface-information)","Information background: info tag, badge, notification frame."],
+["multi-purpose/alert/information/default","A91","A91","",""],
+["multi-purpose/icon/action","A78","A13","var(--ga-color-icon-action)","Icon in an action: buttons, close buttons, file actions."],
+["multi-purpose/icon/action-hover","A79","A14","var(--ga-color-icon-action-hover)","Hover for icon/action."],
+["multi-purpose/icon/action-pressed","A80","A80","",""],
+["multi-purpose/icon/on-primary-action","A76","A12","var(--ga-color-icon-on-action)","Icons on surface/action (primary buttons)."],
+["multi-purpose/icon/on-secondary-action","A77","A77","",""],
+["multi-purpose/icon/on-control","A1","A11","var(--ga-color-icon-on-control)","Check and dot on a checked control; icons on Red 90."],
+["multi-purpose/icon/alerts/error","A85","F25","var(--ga-color-icon-error)","Error icons and badge dots."],
+["multi-purpose/icon/alerts/information","A91","F116","var(--ga-color-icon-information)","Information icons and badge dots."],
+["multi-purpose/icon/alerts/warning","F46","F45","var(--ga-color-icon-warning)","Warning icons and badge dots. ≥3:1 in Light and Dark (D286)."],
+["multi-purpose/icon/alerts/success","A88","F65","var(--ga-color-icon-success)","Success icons and badge dots."],
+["multi-purpose/icon/brand","A75","A13","var(--ga-color-icon-brand)","Scarlet bird mark."],
+["multi-purpose/utility/yellow-accent","A152","F41","var(--ga-color-utility-yellow-accent)","Utility yellow tag fill (category, no status meaning)."],
+["multi-purpose/utility/yellow","A151","F38","var(--ga-color-utility-yellow)","Utility yellow tag edge and icon."],
+["multi-purpose/utility/lime-accent","A96","F60","var(--ga-color-utility-lime-accent)","Utility lime tag fill (category, no status meaning)."],
+["multi-purpose/utility/lime","A95","F57","var(--ga-color-utility-lime)","Utility lime tag edge and icon."],
+["multi-purpose/utility/cyan-accent","A154","F81","var(--ga-color-utility-cyan-accent)","Utility cyan tag fill (category, no status meaning)."],
+["multi-purpose/utility/cyan","A153","F78","var(--ga-color-utility-cyan)","Utility cyan tag edge and icon."],
+["multi-purpose/utility/teal-accent","A100","F90","var(--ga-color-utility-teal-accent)","Utility teal tag fill (category, no status meaning)."],
+["multi-purpose/utility/teal","A99","F87","var(--ga-color-utility-teal)","Utility teal tag edge and icon."],
+["multi-purpose/utility/blue-accent","A102","F101","var(--ga-color-utility-blue-accent)","Utility blue tag fill (category, no status meaning)."],
+["multi-purpose/utility/blue","A101","F98","var(--ga-color-utility-blue)","Utility blue tag edge and icon."],
+["multi-purpose/utility/indigo-accent","A148","F111","var(--ga-color-utility-indigo-accent)","Utility indigo tag fill (category, no status meaning)."],
+["multi-purpose/utility/indigo","A147","F108","var(--ga-color-utility-indigo)","Utility indigo tag edge and icon."],
+["multi-purpose/utility/grey-accent","A108","F10","var(--ga-color-utility-grey-accent)","Utility grey tag fill (category, no status meaning)."],
+["multi-purpose/utility/grey","A107","F7","var(--ga-color-utility-grey)","Utility grey tag edge and icon."],
+["multi-purpose/utility/pink-accent","A106","F131","var(--ga-color-utility-pink-accent)","Utility pink tag fill (category, no status meaning)."],
+["multi-purpose/utility/pink","A105","F128","var(--ga-color-utility-pink)","Utility pink tag edge and icon."],
+["multi-purpose/utility/rose-accent","A150","F141","var(--ga-color-utility-rose-accent)","Utility rose tag fill (category, no status meaning)."],
+["multi-purpose/utility/rose","A149","F138","var(--ga-color-utility-rose)","Utility rose tag edge and icon."],
+["multi-purpose/utility/neutral-accent","A156","A10","var(--ga-color-utility-neutral-accent)","Utility neutral tag fill (category, no status meaning)."],
+["multi-purpose/utility/neutral","A155","A7","var(--ga-color-utility-neutral)","Utility neutral tag edge and icon."],
+["multi-purpose/graph/categorical/01","A111","A27","var(--ga-color-categorical-graph-01)","Chart series 1 in priority order (D262)."],
+["multi-purpose/graph/categorical/02","A112","F137","var(--ga-color-categorical-graph-02)","Chart series 2 in priority order (D262)."],
+["multi-purpose/graph/categorical/03","A113","F104","var(--ga-color-categorical-graph-03)","Chart series 3 in priority order (D262)."],
+["multi-purpose/graph/categorical/04","A114","F76","var(--ga-color-categorical-graph-04)","Chart series 4 in priority order (D262)."],
+["multi-purpose/graph/categorical/05","A115","F64","var(--ga-color-categorical-graph-05)","Chart series 5 in priority order (D262)."],
+["multi-purpose/graph/categorical/06","A116","F126","var(--ga-color-categorical-graph-06)","Chart series 6 in priority order (D262)."],
+["multi-purpose/graph/categorical/07","A117","F37","var(--ga-color-categorical-graph-07)","Chart series 7 in priority order (D262)."],
+["multi-purpose/graph/categorical/08","A118","F44","var(--ga-color-categorical-graph-08)","Chart series 8 in priority order (D262)."],
+["multi-purpose/graph/categorical/09","A119","F94","var(--ga-color-categorical-graph-09)","Chart series 9 in priority order (D262)."],
+["multi-purpose/graph/categorical/10","A120","F53","var(--ga-color-categorical-graph-10)","Chart series 10 in priority order (D262)."],
+["multi-purpose/graph/sequential/01","A121","F90","var(--ga-color-sequential-graph-10)","Sequential chart ramp, Teal step 10 (D264)."],
+["multi-purpose/graph/sequential/02","A122","F89","var(--ga-color-sequential-graph-20)","Sequential chart ramp, Teal step 20 (D264)."],
+["multi-purpose/graph/sequential/03","A123","F88","var(--ga-color-sequential-graph-30)","Sequential chart ramp, Teal step 30 (D264)."],
+["multi-purpose/graph/sequential/04","A124","F87","var(--ga-color-sequential-graph-40)","Sequential chart ramp, Teal step 40 (D264)."],
+["multi-purpose/graph/sequential/05","A125","F86","var(--ga-color-sequential-graph-50)","Sequential chart ramp, Teal step 50 (D264)."],
+["multi-purpose/graph/sequential/06","A126","F85","var(--ga-color-sequential-graph-60)","Sequential chart ramp, Teal step 60 (D264)."],
+["multi-purpose/graph/sequential/07","A127","F84","var(--ga-color-sequential-graph-70)","Sequential chart ramp, Teal step 70 (D264)."],
+["multi-purpose/graph/sequential/08","A128","F83","var(--ga-color-sequential-graph-80)","Sequential chart ramp, Teal step 80 (D264)."],
+["multi-purpose/graph/sequential/09","A129","F72","var(--ga-color-sequential-graph-90)","Sequential chart ramp, Teal step 90 (D264)."],
+["multi-purpose/graph/sequential/10","A130","F72","var(--ga-color-sequential-graph-100)","Sequential chart ramp, Teal step 100 (D264)."],
+["multi-purpose/graph/diverging/01","A131","A13","var(--ga-color-diverging-graph-01)","Diverging chart ramp 1 of 15: Red (loss) → Neutral 10 → Teal (gain) (D265)."],
+["multi-purpose/graph/diverging/02","A132","A14","var(--ga-color-diverging-graph-02)","Diverging chart ramp 2 of 15."],
+["multi-purpose/graph/diverging/03","A133","A15","var(--ga-color-diverging-graph-03)","Diverging chart ramp 3 of 15."],
+["multi-purpose/graph/diverging/04","A134","A16","var(--ga-color-diverging-graph-04)","Diverging chart ramp 4 of 15."],
+["multi-purpose/graph/diverging/05","A135","A17","var(--ga-color-diverging-graph-05)","Diverging chart ramp 5 of 15."],
+["multi-purpose/graph/diverging/06","A136","A18","var(--ga-color-diverging-graph-06)","Diverging chart ramp 6 of 15."],
+["multi-purpose/graph/diverging/07","A137","A19","var(--ga-color-diverging-graph-07)","Diverging chart ramp 7 of 15."],
+["multi-purpose/graph/diverging/08","A138","A10","var(--ga-color-diverging-graph-08)","Diverging chart ramp 8 of 15 (midpoint)."],
+["multi-purpose/graph/diverging/09","A139","F88","var(--ga-color-diverging-graph-09)","Diverging chart ramp 9 of 15."],
+["multi-purpose/graph/diverging/10","A140","F87","var(--ga-color-diverging-graph-10)","Diverging chart ramp 10 of 15."],
+["multi-purpose/graph/diverging/11","A141","F86","var(--ga-color-diverging-graph-11)","Diverging chart ramp 11 of 15."],
+["multi-purpose/graph/diverging/12","A142","F85","var(--ga-color-diverging-graph-12)","Diverging chart ramp 12 of 15."],
+["multi-purpose/graph/diverging/13","A143","F84","var(--ga-color-diverging-graph-13)","Diverging chart ramp 13 of 15."],
+["multi-purpose/graph/diverging/14","A144","F83","var(--ga-color-diverging-graph-14)","Diverging chart ramp 14 of 15."],
+["multi-purpose/graph/diverging/15","A145","F72","var(--ga-color-diverging-graph-15)","Diverging chart ramp 15 of 15."],
+["multi-purpose/text/strong","A12","A1","var(--ga-color-text-strong)","Neutral 100 labels: tab labels, accordion titles, list rows, menu rows, filter chip and segment labels, day numbers."],
+["multi-purpose/icon/strong","A12","A1","var(--ga-color-icon-strong)","Neutral 100 icons and chevrons in accordions, lists, segments and menus."],
+["multi-purpose/text/on-control","A1","A11","var(--ga-color-text-on-control)","White text on Red 90 / Red 100: selected chip, segment, day, current menu item, tooltip."],
+["component-level/button/primary/surface","A39","A39","",""],
+["component-level/button/primary/surface-hover","A40","A40","",""],
+["component-level/button/primary/surface-pressed","A46","A46","",""],
+["component-level/button/primary/text","A61","A61","",""],
+["component-level/button/primary/icon","A76","A76","",""],
+["component-level/button/secondary/surface","A47","A47","",""],
+["component-level/button/secondary/surface-hover","A41","A41","",""],
+["component-level/button/secondary/surface-pressed","A48","A48","",""],
+["component-level/button/secondary/border","A50","A50","",""],
+["component-level/button/secondary/text","A65","A65","",""],
+["component-level/button/secondary/icon","A77","A77","",""],
+["component-level/button/ghost/surface-hover","A41","A41","",""],
+["component-level/button/ghost/surface-pressed","A3","A3","",""],
+["component-level/button/ghost/border-hover","A49","A49","--ga-color-border-button-ghost-hover",""],
+["component-level/button/ghost/border-pressed","A51","A51","--ga-color-border-button-ghost-pressed",""],
+["component-level/button/ghost/text","A65","A65","",""],
+["component-level/button/ghost/icon","A77","A77","",""],
+["component-level/button/transparent/surface-hover","A41","A41","",""],
+["component-level/button/transparent/surface-pressed","A3","A3","",""],
+["component-level/button/transparent/border","A50","A50","",""],
+["component-level/button/transparent/text","A65","A65","",""],
+["component-level/button/transparent/icon","A77","A77","",""],
+["component-level/button/disabled/disabled-surface","A37","A37","",""],
+["component-level/button/disabled/disabled-border","A52","A52","",""],
+["component-level/button/disabled/disabled-text","A69","A69","",""],
+["component-level/button/disabled/disabled-icon","A82","A82","",""],
+["component-level/button/disable-selected/disable-selected-surface","A38","A38","",""],
+["component-level/button/disable-selected/disable-selected-border","A54","A54","",""],
+["component-level/button/disable-selected/disable-selected-text","A70","A70","",""],
+["component-level/button/disable-selected/disable-selected-icon","A73","A73","",""],
+["component-level/alert/text","A59","A59","--ga-color-text-alert-information","Text color for informational alerts."],
+["component-level/alert/error/surface","A33","A33","--ga-color-surface-alert-error","Background for error alert messages."],
+["component-level/alert/error/border","A85","A85","--ga-color-border-alert-error","Border color for error alert messages."],
+["component-level/alert/error/accent","A86","A86","--ga-color-accent-alert-error",""],
+["component-level/alert/error/icon","A85","A85","--ga-color-icon-error","Icon color for error indicators."],
+["component-level/alert/warning/surface","A33","A33","--ga-color-surface-alert-warning","Background for warning alert messages."],
+["component-level/alert/warning/border","A87","A87","--ga-color-border-alert-warning","Border color for warning alert messages."],
+["component-level/alert/warning/icon","A87","A87","--ga-color-icon-warning","Icon color for warning indicators."],
+["component-level/alert/warning/accent","A90","A90","--ga-color-accent-alert-warning",""],
+["component-level/alert/success/surface","A33","A33","--ga-color-surface-alert-success","Background for success alert messages."],
+["component-level/alert/success/border","A88","A88","--ga-color-border-alert-success","Border color for success alert messages."],
+["component-level/alert/success/accent","A89","A89","--ga-color-accent-alert-success",""],
+["component-level/alert/success/icon","A88","A88","--ga-color-icon-success","Icon color for success indicators."],
+["component-level/alert/info/surface","A33","A33","--ga-color-surface-alert-information","Background for informational alert messages."],
+["component-level/alert/info/border","A91","A91","--ga-color-border-alert-information","Border color for informational alert messages."],
+["component-level/alert/info/accent","A92","A92","--ga-color-accent-alert-information",""],
+["component-level/alert/info/icon","A91","A91","--ga-color-icon-information","Icon color for informational content."],
+["component-level/utility/text","A59","A59","",""],
+["component-level/utility/grey/surface","A108","A108","--ga-color-utility-grey-accent","Grey accent utility color for badge foregrounds and borders."],
+["component-level/utility/grey/border","A107","A107","--ga-color-utility-grey","Grey utility color for neutral badges and archived items."],
+["component-level/utility/grey/icon","A107","A107","--ga-color-utility-grey-icon",""],
+["component-level/utility/red/surface","A94","A94","--ga-color-utility-red-accent","DEPRECATED. Red, orange, green and blue are reserved for alert colours; use color/alert/* instead."],
+["component-level/utility/red/border","A93","A93","--ga-color-utility-red","DEPRECATED. Red, orange, green and blue are reserved for alert colours; use color/alert/* instead."],
+["component-level/utility/red/icon","A93","A93","--ga-color-utility-red-icon",""],
+["component-level/utility/orange/surface","A110","A110","--ga-color-utility-orange-accent","DEPRECATED. Red, orange, green and blue are reserved for alert colours; use color/alert/* instead."],
+["component-level/utility/orange/border","A109","A109","--ga-color-utility-orange","DEPRECATED. Red, orange, green and blue are reserved for alert colours; use color/alert/* instead."],
+["component-level/utility/orange/icon","A109","A109","--ga-color-utility-orange-icon",""],
+["component-level/utility/lime/surface","A96","A96","--ga-color-utility-lime-accent","Lime accent utility color for badge foregrounds and borders."],
+["component-level/utility/lime/border","A95","A95","--ga-color-utility-lime","Lime utility color for fresh content and beta features."],
+["component-level/utility/lime/icon","A95","A95","--ga-color-utility-lime-icon",""],
+["component-level/utility/green/surface","A98","A98","--ga-color-utility-green-accent","DEPRECATED. Red, orange, green and blue are reserved for alert colours; use color/alert/* instead."],
+["component-level/utility/green/border","A97","A97","--ga-color-utility-green","DEPRECATED. Red, orange, green and blue are reserved for alert colours; use color/alert/* instead."],
+["component-level/utility/green/icon","A97","A97","--ga-color-utility-green-icon",""],
+["component-level/utility/teal/surface","A100","A100","--ga-color-utility-teal-accent","Teal accent utility color for badge foregrounds and borders."],
+["component-level/utility/teal/border","A99","A99","--ga-color-utility-teal","Teal utility color for finance and asset badges."],
+["component-level/utility/teal/icon","A99","A99","--ga-color-utility-teal-icon",""],
+["component-level/utility/blue/surface","A102","A102","--ga-color-utility-blue-accent","DEPRECATED. Red, orange, green and blue are reserved for alert colours; use color/alert/* instead."],
+["component-level/utility/blue/border","A101","A101","--ga-color-utility-blue","DEPRECATED. Red, orange, green and blue are reserved for alert colours; use color/alert/* instead."],
+["component-level/utility/blue/icon","A101","A101","--ga-color-utility-blue-icon",""],
+["component-level/utility/indigo/surface","A148","A148","--ga-color-utility-indigo-accent","Indigo accent utility color for badge foregrounds and borders."],
+["component-level/utility/indigo/border","A147","A147","--ga-color-utility-indigo","Indigo utility color for technical badges and API indicators."],
+["component-level/utility/indigo/icon","A147","A147","--ga-color-utility-indigo-icon",""],
+["component-level/utility/purple/surface","A104","A104","--ga-color-utility-purple-accent","Purple accent utility color for badge foregrounds and borders."],
+["component-level/utility/purple/border","A103","A103","--ga-color-utility-purple","Purple utility color for category and feature badges."],
+["component-level/utility/purple/icon","A103","A103","--ga-color-utility-purple-icon",""],
+["component-level/utility/pink/surface","A106","A106","--ga-color-utility-pink-accent","Pink accent utility color for badge foregrounds and borders."],
+["component-level/utility/pink/border","A105","A105","--ga-color-utility-pink","Pink utility color for marketing and campaign badges."],
+["component-level/utility/pink/icon","A105","A105","--ga-color-utility-pink-icon",""],
+["component-level/utility/rose/surface","A150","A150","--ga-color-utility-rose-accent","Rose accent utility color for badge foregrounds and borders."],
+["component-level/utility/rose/border","A149","A149","--ga-color-utility-rose","Rose utility color for personal and delicate items."],
+["component-level/utility/rose/icon","A149","A149","--ga-color-utility-rose-icon",""],
+["component-level/list-items/list-item/surface","A47","A47","--ga-color-surface-list-item",""],
+["component-level/list-items/list-item/border","A49","A49","--ga-color-border-list-item",""],
+["component-level/list-items/list-item/hover","A41","A41","--ga-color-surface-list-item-hover",""],
+["component-level/list-items/list-item/pressed","A48","A48","--ga-color-surface-list-item-pressed",""],
+["component-level/list-items/list-item/text","A59","A59","--ga-color-text-list-item",""],
+["component-level/list-items/list-item/icon","A74","A74","--ga-color-icon-list-item",""],
+["component-level/list-items/list-item-selected/surface","A42","A42","--ga-color-surface-list-item-selected",""],
+["component-level/list-items/list-item-selected/border","A49","A49","--ga-color-border-list-item-selected",""],
+["component-level/list-items/list-item-selected/hover","A44","A44","--ga-color-surface-list-item-selected-hover",""],
+["component-level/list-items/list-item-selected/pressed","A45","A45","--ga-color-surface-list-item-selected-pressed",""],
+["component-level/list-items/list-item-selected/text","A59","A59","--ga-color-text-list-item-selected",""],
+["component-level/list-items/list-item-selected/icon","A74","A74","--ga-color-icon-list-item-selected",""],
+["component-level/list-items/list-item-disabled/border","A52","A52","--ga-color-border-list-item-disabled",""],
+["component-level/list-items/list-item-disabled/surface","A37","A37","--ga-color-surface-list-item-disabled",""],
+["component-level/list-items/list-item-disabled/text","A69","A69","--ga-color-text-list-item-disabled",""],
+["component-level/list-items/list-item-disabled/icon","A82","A82","--ga-color-icon-list-item-disabled",""],
+["component-level/list-items/list-item-disable-selected/border","A54","A54","--ga-color-border-list-item-disable-selected",""],
+["component-level/list-items/list-item-disable-selected/surface","A38","A38","--ga-color-surface-list-item-disable-selected",""],
+["component-level/list-items/list-item-disable-selected/text","A70","A70","--ga-color-text-list-item-disable-selected",""],
+["component-level/list-items/list-item-disable-selected/icon","A73","A73","--ga-color-icon-list-item-disable-selected",""],
+["component-level/progress/progress","A21","A21","--ga-color-surface-progress","Background for progress bar tracks."],
+["component-level/progress/progress-2","A19","A19","--ga-color-surface-progress-2","Foreground fill color for progress bars."],
+["component-level/progress/progress-indeterminate","A8","A8","--ga-color-surface-progress-indeterminate","Indeterminate progress bar fill."],
+["component-level/progress/progress-success","A88","A88","--ga-color-surface-progress-success","Progress bar fill when an upload or step completes."],
+["component-level/progress/progress-error","A85","A85","--ga-color-surface-progress-error","Progress bar fill when an upload or step fails."],
+["component-level/checkboxes/checkbox/surface","A33","A33","",""],
+["component-level/checkboxes/checkbox/surface-hover","A41","A41","",""],
+["component-level/checkboxes/checkbox/border","A50","A50","",""],
+["component-level/checkboxes/checkbox/selected-surface","A39","A39","",""],
+["component-level/checkboxes/checkbox/selected-surface-hover","A40","A40","",""],
+["component-level/checkboxes/checkbox/check","A76","A76","",""],
+["component-level/checkboxes/checkbox/focus","A53","A53","",""],
+["component-level/checkboxes/checkbox/text","A59","A59","",""],
+["component-level/checkboxes/checkbox-on-list-item/border","A50","A50","",""],
+["component-level/checkboxes/checkbox-on-list-item/selected-surface","A43","A43","",""],
+["component-level/checkboxes/checkbox-on-list-item/check","A76","A76","",""],
+["component-level/checkboxes/checkbox-on-list-item/text","A59","A59","",""],
+["component-level/checkboxes/checkbox-disabled/surface","A37","A37","",""],
+["component-level/checkboxes/checkbox-disabled/border","A52","A52","",""],
+["component-level/checkboxes/checkbox-disabled/check","A72","A72","",""],
+["component-level/checkboxes/checkbox-disabled/text","A55","A55","",""],
+["component-level/checkboxes/checkbox-disable-selected/surface","A38","A38","",""],
+["component-level/checkboxes/checkbox-disable-selected/border","A54","A54","",""],
+["component-level/checkboxes/checkbox-disable-selected/check","A83","A83","",""],
+["component-level/checkboxes/checkbox-disable-selected/text","A56","A56","",""],
+["component-level/checkboxes/checkbox-error/surface","A86","A86","",""],
+["component-level/checkboxes/checkbox-error/border","A85","A85","",""],
+["component-level/checkboxes/checkbox-error/selected-surface","A85","A85","",""],
+["component-level/checkboxes/checkbox-error/check","A76","A76","",""],
+["component-level/checkboxes/checkbox-error/text","A59","A59","",""],
+["component-level/checkboxes/checkbox-on-disabled/surface","A33","A33","",""],
+["component-level/checkboxes/checkbox-on-disabled/border","A52","A52","",""],
+["component-level/checkboxes/checkbox-on-disabled/check","A82","A82","",""],
+["component-level/checkboxes/checkbox-on-disabled/text","A69","A69","",""],
+["component-level/checkboxes/checkbox-on-disable-selected/selected-surface","A6","A6","",""],
+["component-level/checkboxes/checkbox-on-disable-selected/border","A54","A54","",""],
+["component-level/checkboxes/checkbox-on-disable-selected/check","A76","A76","",""],
+["component-level/checkboxes/checkbox-on-disable-selected/text","A70","A70","",""],
+["miscellaneous/scrim","F11@60","F11@60","var(--ga-color-miscellaneous-overlay)","Backdrop behind modals and drawers (Gaia miscellaneous-overlay)."],
+["miscellaneous/focus-gap","A1","A11","var(--ga-color-focus-gap)","Focus ring inner gap, 2px; matches the surface."],
+["miscellaneous/focus-gap-raised","A1","A10","var(--ga-color-focus-gap-raised)","Focus ring gap inside a popout."],
+["miscellaneous/skeleton-element","A3","A10","var(--ga-color-miscellaneous-skeleton-element)","Skeleton placeholder block."],
+["miscellaneous/skeleton-highlight","A4","A9","var(--ga-color-miscellaneous-skeleton-highlight)","Skeleton shimmer."],
+["miscellaneous/shadow-tint","A12","A0","var(--ga-color-shadow-tint)","Shadow colour for elevation effects (D277)."],
+["miscellaneous/overlay","A146","A146","--ga-miscellaneous-overlay","Semi-transparent overlay for modals and dialogs."],
+["doc/annotation","A30","A24","var(--ga-color-doc-annotation)","Documentation only: anatomy callouts and spec lines. Hidden from publishing."],
+["doc/spacing","A24","A30","var(--ga-color-doc-spacing)","Documentation only: spacing redlines. Hidden from publishing."],
+["multi-purpose/icon/link","A84","A13","var(--ga-color-icon-link)","Icon next to a link (Red 100, D135)."],
+["multi-purpose/text/actions/on-primary-action","A61","A12","var(--ga-color-text-on-action-secondary)","Secondary text on Red 90 / Red 100: counts on a selected chip, description on the current menu item, tooltip secondary lines."],
+["multi-purpose/icon/link-inline","A19","A14","var(--ga-color-icon-link-inline)","Icons inside Red 70 link text: breadcrumb chevrons and back arrow."],
+["multi-purpose/icon/visited","A81","A24","var(--ga-color-icon-link-visited)","Icon inside a visited link."],
+["multi-purpose/utility/red","A93","A93","",""],
+["multi-purpose/utility/red-accent","A94","A94","",""],
+["multi-purpose/utility/green","A97","A97","",""],
+["multi-purpose/utility/green-accent","A98","A98","",""],
+["multi-purpose/text/disabled/disable-selected","A56","A56","",""],
+["multi-purpose/icon/disabled/disabled","A72","A72","",""],
+["multi-purpose/utility/purple","A103","A103","",""],
+["multi-purpose/utility/purple-accent","A104","A104","",""],
+["multi-purpose/utility/orange","A109","A109","",""],
+["multi-purpose/icon/disabled/on-disabled","A82","A6","var(--ga-color-icon-on-disabled)","Icon in a disabled control (exempt from contrast)."],
+["multi-purpose/utility/orange-accent","A110","A110","",""],
+["multi-purpose/icon/disabled/disable-selected","A83","A83","",""],
+["multi-purpose/icon/disabled/on-disable-selected","A73","A73","",""],
+["multi-purpose/overlay/light","A146","A146","",""],
+["multi-purpose/text/menu","A63","A63","",""],
+["multi-purpose/text/actions/action-pressed","A64","A64","",""],
+["multi-purpose/text/actions/on-secondary-action","A65","A65","",""],
+["multi-purpose/text/actions/on-secondary-action-hover","A67","A67","",""],
+["multi-purpose/text/actions/on-secondary-action-pressed","A68","A68","",""],
+["multi-purpose/text/disabled/on-disable-selected","A70","A70","",""]
+]};
+
+(function () {
+  const D = window.WATERFALL, T = { F: D.F, A: D.A, M: D.M };
+  const GENERIC = /^(primary|secondary|neutral|basic)\//;
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const TIER = { F: "Foundation", A: "Alias", M: "Mapped", D: "Mapped · Dark" };
+
+  // ---------- model ----------
+  const parse = r => { if (!r) return null; if (r[0] === "#") return { raw: r.slice(1) }; const m = /^([FAM])(\d+)(?:@(\d+))?$/.exec(r); return m ? { t: m[1], i: +m[2], op: m[3] ? +m[3] : null, k: m[1] + m[2] } : null; };
+  const row = k => (k[0] === "D" ? T.M : T[k[0]])[+k.slice(1)];
+  const nameOf = k => row(k)[0];
+  const rgba = (hex, op) => { let a = hex.length === 8 ? parseInt(hex.slice(6), 16) / 255 : 1; if (op != null) a *= op / 100; const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16); return a >= 0.999 ? "#" + hex.slice(0, 6) : `rgba(${r},${g},${b},${a.toFixed(2)})`; };
+  const hexText = (hex, op) => { let a = hex.length === 8 ? parseInt(hex.slice(6), 16) / 255 : 1; if (op != null) a *= op / 100; return "#" + hex.slice(0, 6) + (a < 0.999 ? " · " + Math.round(a * 100) + "%" : ""); };
+  function chain(ref) { const steps = []; let p = parse(ref), op = null, g = 0;
+    while (p && g++ < 12) { if (p.raw) { steps.push({ raw: p.raw }); break; } if (p.op != null) op = p.op; steps.push(p.k); p = parse(row(p.k)[1]); }
+    const end = steps[steps.length - 1]; const hex = end && end.raw ? end.raw : null; return { steps, op, css: hex ? rgba(hex, op) : "transparent", text: hex ? hexText(hex, op) : "—" }; }
+  const val = {}; // resolved colour per key (Light for M) + dark
+  T.F.forEach((f, i) => val["F" + i] = chain(f[1]));
+  T.A.forEach((a, i) => val["A" + i] = chain(a[1]));
+  // M keys are the Light side of a mapped token, D keys the Dark side of the same token
+  const mDark = {}; T.M.forEach((m, i) => { val["M" + i] = chain(m[1]); val["D" + i] = mDark["M" + i] = mDark["D" + i] = chain(m[2]); });
+  // edges: {from, to, m: 'A' | 'L' | 'D'}
+  const edges = [];
+  T.A.forEach((a, i) => { const p = parse(a[1]); if (p && !p.raw) edges.push({ from: p.k, to: "A" + i, m: "A" }); });
+  T.M.forEach((m, i) => { const l = parse(m[1]), d = parse(m[2]);
+    if (l && !l.raw) edges.push({ from: l.k, to: "M" + i, m: "L" });
+    if (d && !d.raw) edges.push({ from: d.k, to: "D" + i, m: "D" }); });
+  const inMode = (e, mode) => e.m !== "D" || mode === "dark";
+  // reachability (any mode) for fading
+  const used = new Set(); T.M.forEach((m, i) => { used.add("M" + i); used.add("D" + i); [m[1], m[2]].forEach(r => chain(r).steps.forEach(s => typeof s === "string" && used.add(s))); });
+  // flags
+  const norm = s => s.replace(/^var\((.*)\)$/, "$1");
+  const csMap = {}; T.M.forEach((m, i) => m[3] && (csMap[norm(m[3])] = csMap[norm(m[3])] || []).push("M" + i)); T.A.forEach((a, i) => a[2] && (csMap[norm(a[2])] = csMap[norm(a[2])] || []).push("A" + i));
+  const skips = r => { const p = parse(r); return !p || p.raw || p.t === "F"; };
+  const flagsM = {}; T.M.forEach((m, i) => flagsM["M" + i] = flagsM["D" + i] = { same: m[1] === m[2], skip: skips(m[1]) || skips(m[2]), nocs: !m[3], dup: !!m[3] && csMap[norm(m[3])].length > 1 });
+
+  // ---------- columns ----------
+  function groups(keys, sortNum) { const root = { leaves: [], kids: new Map() };
+    keys.forEach(k => { const parts = nameOf(k).split("/"); let n = root; parts.slice(0, -1).forEach(p => { if (!n.kids.has(p)) n.kids.set(p, { leaves: [], kids: new Map() }); n = n.kids.get(p); }); n.leaves.push(k); });
+    const out = []; (function walk(n, path) { if (n.leaves.length) { const l = sortNum ? [...n.leaves].sort((a, b) => (parseInt(nameOf(a).split("/").pop()) || 0) - (parseInt(nameOf(b).split("/").pop()) || 0)) : n.leaves; out.push({ path, items: l }); } n.kids.forEach((c, k) => walk(c, path ? path + "/" + k : k)); })(root, ""); return out; }
+  const FK = T.F.map((_, i) => "F" + i), AG = T.A.map((_, i) => "A" + i).filter(k => GENERIC.test(nameOf(k))), AM = T.A.map((_, i) => "A" + i).filter(k => !GENERIC.test(nameOf(k))), MK = T.M.map((_, i) => "M" + i);
+  const MCL = MK.filter(k => nameOf(k).startsWith("component-level/")), MMP = MK.filter(k => !nameOf(k).startsWith("component-level/"));
+  const toD = keys => keys.map(k => "D" + k.slice(1));
+  const colsFor = m => { const c = [["Foundation", FK, true, "colors", 170], ["Alias · generic", AG, true, "aliases", 190], ["Alias · multipurpose", AM, false, "aliases", 250], ["Mapped · Light", MMP, false, "tokens · multi-purpose, miscellaneous, doc", 280]];
+    if (m === "dark") c.push(["Mapped · Dark", toD(MMP), false, "same tokens in Dark mode", 280, true]);
+    c.push(["Mapped · component-level · Light", MCL, false, "tokens", 300]);
+    if (m === "dark") c.push(["Mapped · component-level · Dark", toD(MCL), false, "same tokens in Dark mode", 300, true]);
+    return c; };
+
+  let mode = "light", sel = null, view = "waterfall", zoom = 1, wheelZoom = true;
+  function sizeSizer() { const f = $("#fall"), s = $("#sizer"); f.style.transform = `scale(${zoom})`; s.style.width = f.offsetWidth * zoom + "px"; s.style.height = f.offsetHeight * zoom + "px"; $("#z-val").textContent = Math.round(zoom * 100) + "%"; placeHeads(); }
+  function placeHeads() { const sc = $("#scroller"), cols = [...$("#fall").querySelectorAll(".col")], heads = [...$("#heads").children];
+    $("#heads").style.right = Math.max(1, sc.offsetWidth - sc.clientWidth - 1) + "px";
+    cols.forEach((c, i) => { const h = heads[i]; if (!h) return; const dark = c.classList.contains("darkcol"); const pad = dark ? 0 : 6;
+      h.style.left = (c.offsetLeft * zoom - sc.scrollLeft - pad) + "px"; h.style.width = (c.offsetWidth * zoom + pad) + "px"; }); }
+  function setZoom(z, ax, ay) { const sc = $("#scroller"); const nz = Math.min(2, Math.max(0.2, z)); if (nz === zoom) return;
+    const r = sc.getBoundingClientRect(); const mx = ax == null ? sc.clientWidth / 2 : ax - r.left, my = ay == null ? sc.clientHeight / 2 : ay - r.top;
+    const cx = (sc.scrollLeft + mx) / zoom, cy = (sc.scrollTop + my) / zoom; zoom = nz; sizeSizer(); sc.scrollLeft = cx * zoom - mx; sc.scrollTop = cy * zoom - my;
+    try { localStorage.setItem("wf2-zoom", String(zoom)); } catch (e) {} }
+  try { const m = localStorage.getItem("wf2-mode"); if (m) mode = m === "light" ? "light" : "dark"; } catch (e) {}
+
+  const sw = (css, cls) => `<span class="sw${cls ? " " + cls : ""}" style="--c:${css}"></span>`;
+  function nodeHtml(k) { const t = k[0]; const sws = sw(val[k].css);
+    const r = row(k); const sk = t === "M" ? skips(r[1]) : t === "D" ? skips(r[2]) : false;
+    const mk = sk ? '<span class="mk" title="Skips Alias">F</span>' : "";
+    return `<button type="button" class="node${used.has(k) ? "" : " unused"}" data-k="${k}" title="${esc(nameOf(k))}">${sws}<span class="nm">${esc(nameOf(k).split("/").pop())}</span>${mk}</button>`; }
+  function buildFall() {
+    const fall = $("#fall"); fall.querySelectorAll(".col").forEach(c => c.remove());
+    const COLS = colsFor(mode); fall.style.gridTemplateColumns = COLS.map(c => c[4] + "px").join(" ");
+    $("#heads").innerHTML = COLS.map(([title, keys, num, noun, w, dark]) => `<div class="head${dark ? " dark" : ""}" title="${esc(title + " · " + keys.length + " " + noun)}"><b>${title}</b><span>${keys.length} ${noun}</span></div>`).join("");
+    COLS.forEach(([title, keys, num, noun, w, dark]) => { const col = document.createElement("div"); col.className = "col" + (dark ? " darkcol" : "");
+      let h = "";
+      groups(keys, num).forEach(g => { h += `<div class="grp" title="${esc(g.path)}">${esc(g.path || "(root)")}</div>` + g.items.map(nodeHtml).join(""); });
+      col.innerHTML = h; fall.appendChild(col); });
+    requestAnimationFrame(drawLinks);
+  }
+  const pos = {};
+  function drawLinks() {
+    const fall = $("#fall"), box = fall.getBoundingClientRect(); const svg = $("#links"); const z = zoom;
+    svg.setAttribute("width", fall.offsetWidth); svg.setAttribute("height", fall.offsetHeight); sizeSizer();
+    fall.querySelectorAll(".node").forEach(n => { const r = n.getBoundingClientRect(); pos[n.dataset.k] = { l: (r.left - box.left) / z, r: (r.right - box.left) / z, y: (r.top - box.top + r.height / 2) / z, col: n.parentNode }; });
+    let h = ""; edges.forEach((e, ix) => { if (!inMode(e, mode)) return; const a = pos[e.from], b = pos[e.to]; if (!a || !b) return;
+      let d; if (a.col === b.col) { const x = a.l - 4, out = Math.min(60, 18 + Math.abs(b.y - a.y) * .04); d = `M${x},${a.y} C${x - out},${a.y} ${x - out},${b.y} ${x},${b.y}`; }
+      else { const x1 = a.r - 2, x2 = b.l + 2, dx = (x2 - x1) * .5; d = `M${x1},${a.y} C${x1 + dx},${a.y} ${x2 - dx},${b.y} ${x2},${b.y}`; }
+      h += `<path data-e="${ix}" class="${e.m === "D" ? "dk" : ""}" d="${d}"/>`; });
+    svg.innerHTML = h; applyFocus();
+  }
+
+  // ---------- route ----------
+  function route(k) { const nodes = new Set([k]), es = new Set();
+    const up = key => { edges.forEach((e, ix) => { if (e.to === key && inMode(e, mode)) { es.add(ix); if (!nodes.has(e.from)) { nodes.add(e.from); up(e.from); } } }); };
+    const down = key => { edges.forEach((e, ix) => { if (e.from === key && inMode(e, mode)) { es.add(ix); if (!nodes.has(e.to)) { nodes.add(e.to); down(e.to); } } }); };
+    up(k); down(k); return { nodes, es }; }
+  function applyFocus() { const fall = $("#fall"); fall.classList.toggle("focus", !!sel); fall.classList.toggle("showall", $("#showall").checked);
+    fall.querySelectorAll(".node.on, .node.sel").forEach(n => n.classList.remove("on", "sel")); $("#links").querySelectorAll("path.on").forEach(p => p.classList.remove("on"));
+    if (!sel) return; const r = route(sel);
+    r.nodes.forEach(k => { const n = fall.querySelector(`.node[data-k="${k}"]`); if (n) n.classList.add("on"); });
+    const s = fall.querySelector(`.node[data-k="${sel}"]`); if (s) s.classList.add("sel");
+    r.es.forEach(ix => { const p = $("#links").querySelector(`path[data-e="${ix}"]`); if (p) p.classList.add("on"); }); }
+
+  // ---------- trace panel ----------
+  function chainHtml(ref, title) { const c = chain(ref);
+    const st = c.steps.map(s => { if (typeof s !== "string") return `<div class="step">${sw(rgba(s.raw, c.op))}<div><small>Raw value</small><span class="hex">${hexText(s.raw, c.op)}</span></div></div>`;
+      return `<div class="step">${sw(val[s].css)}<div><small>${TIER[s[0]]}</small><button type="button" class="lnk" data-k="${s}">${esc(nameOf(s))}</button></div></div>`; }).join("");
+    return `<div class="kv"><div class="eyebrow">${title}</div><div class="chain">${st}</div><div class="hex">Resolves to ${c.text}</div></div>`; }
+  function feedsHtml(k) { const list = edges.filter(e => e.from === k).map(e => e.to); const uniq = [...new Set(list)];
+    if (!uniq.length) return `<span class="muted">Nothing references this.</span>`;
+    return `<div class="feeds">` + uniq.map(x => `<button type="button" data-k="${x}">${sw(val[x].css)}${x[0] === "D" ? "M" : x[0]} · ${esc(nameOf(x))}${x[0] === "D" ? " (Dark)" : ""}</button>`).join("") + `</div>`; }
+  const flagHtml = f => [f.skip && '<span class="flag crit">skips alias</span>', f.same && '<span class="flag warn">Dark = Light</span>', f.dup && '<span class="flag info">dup code syntax</span>', f.nocs && '<span class="flag info">no code syntax</span>'].filter(Boolean).join("");
+  function renderTrace() { const el = $("#trace");
+    if (!sel) { el.innerHTML = `<div><div class="eyebrow">Trace</div><p class="muted">Click any token in the waterfall. A foundation color lights up every branch it feeds; a mapped token lights up its route back to Foundation. The details show here.</p></div><div class="kv"><div class="eyebrow">In this snapshot</div><div>${T.F.length} foundation · ${T.A.length} alias · ${T.M.length} mapped</div></div>`; return; }
+    const k = sel, t = k[0], r = row(k), parts = r[0].split("/"); const rt = route(k);
+    let h = `<div><div class="eyebrow">${TIER[t]}</div><div class="name">${esc(parts.pop())}</div><div class="path">${esc(parts.join("/"))}</div></div>`;
+    if (t === "M" || t === "D") { const f = flagsM[k], lk = "M" + k.slice(1);
+      h += `<div class="cols2"><div class="kv"><div class="eyebrow">Light</div>${sw(val[lk].css, "lg")}<span class="hex">${val[lk].text}</span></div><div class="kv"><div class="eyebrow">Dark</div><span><span class="dk lg">${sw(mDark[lk].css, "lg")}</span></span><span class="hex">${mDark[lk].text}</span></div></div>`;
+      const lr = chainHtml(r[1], "Light route"), dr = f.same ? `<div class="kv"><div class="eyebrow">Dark route</div><span class="same">Same as Light</span></div>` : chainHtml(r[2], "Dark route");
+      h += t === "D" ? (f.same ? chainHtml(r[2], "Dark route (same as Light)") : dr + lr) : lr + dr;
+      h += `<div class="kv"><div class="eyebrow">Code syntax</div><div>${r[3] ? `<code>${esc(r[3])}</code><button class="copy" type="button" data-copy="${esc(r[3])}">Copy</button>` : '<span class="muted">None</span>'}</div></div>`;
+      h += `<div class="kv"><div class="eyebrow">Description</div><div>${r[4] ? esc(r[4]) : '<span class="muted">None</span>'}</div></div>`;
+      const fl = flagHtml(f); if (fl) h += `<div class="flags">${fl}</div>`;
+    } else {
+      h += `<div class="kv">${sw(val[k].css, "lg")}<span class="hex">${val[k].text}</span></div>`;
+      if (t === "A") h += chainHtml(k, "Route to Foundation");
+      const rl = [...rt.nodes].filter(x => x[0] === "M").length, rd = [...rt.nodes].filter(x => x[0] === "D").length;
+      h += `<div class="kv"><div class="eyebrow">Feeds directly</div>${feedsHtml(k)}</div><div class="kv"><div class="eyebrow">Ends up in</div><div>${rl} mapped token${rl === 1 ? "" : "s"} in Light${mode === "dark" ? ` · ${rd} in Dark` : ""}</div></div>`;
+      if (t === "A") { h += `<div class="kv"><div class="eyebrow">Code syntax</div><div>${r[2] ? `<code>${esc(r[2])}</code>` : '<span class="muted">None</span>'}</div></div>`; if (r[3]) h += `<div class="kv"><div class="eyebrow">Description</div><div>${esc(r[3])}</div></div>`; }
+      if (!used.has(k)) h += `<div class="flags"><span class="flag warn">not used by mapped</span></div>`;
+    }
+    el.innerHTML = h; el.scrollTop = 0; }
+
+  // ---------- problems ----------
+  function problems() { const P = [];
+    const all = MK; P.push(["Mapped tokens that skip Alias", "crit", all.filter(k => flagsM[k].skip), "These point at a foundation color or a raw value in Light or Dark. Each needs its own alias to follow the tier rule."]);
+    P.push(["Dark = Light", "warn", all.filter(k => flagsM[k].same), "Dark points at the same source as Light, so these tokens do not change in Dark mode."]);
+    const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);
+    P.push(["Duplicate code syntax", "info", dup.flatMap(([, l]) => l), dup.length + " code syntax values are used by more than one variable: " + dup.map(([c]) => c).join(", ") + "."]);
+    P.push(["Mapped tokens without code syntax", "info", all.filter(k => flagsM[k].nocs), "No WEB code syntax is set."]);
+    P.push(["Aliases not used by any mapped token", "warn", [...AG, ...AM].filter(k => !used.has(k)), "Nothing in Mapped reaches these, directly or through another alias."]);
+    return P; }
+  function renderProblems() { const P = problems();
+    const item = k => `<button type="button" data-k="${k}" title="${esc(nameOf(k))}">${sw(val[k].css)}<span>${esc(nameOf(k).split("/").pop())}</span></button>`;
+    const card = (title, keys) => `<div class="card"><h3 title="${esc(title)}">${esc(title)}</h3>${keys.map(item).join("")}</div>`;
+    // cards per folder (Alias and Mapped kept apart); duplicate code syntax gets one card per shared value instead
+    const byFolder = keys => ["A", "M"].flatMap(t => groups(keys.filter(k => k[0] === t), false).map(g => card((t === "A" ? "Alias · " : "Mapped · ") + (g.path || "(root)"), g.items)));
+    const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);
+    $("#v-problems").innerHTML = P.map(([t, lv, keys, txt]) => { const cards = !keys.length ? '<span class="muted">None</span>' : t === "Duplicate code syntax" ? dup.map(([c, l]) => card(c, l)).join("") : byFolder(keys).join("");
+      return `<section class="prob"><header><h2>${esc(t)}</h2><span class="flag ${lv}">${keys.length}</span></header><p>${esc(txt)}</p><div class="cards">${cards}</div></section>`; }).join(""); }
+
+  // ---------- interaction ----------
+  function select(k, scroll) { sel = k; applyFocus(); renderTrace();
+    if (scroll && k) { const n = $(`#fall .node[data-k="${k}"]`); if (n) n.scrollIntoView({ block: "center", inline: "nearest" }); } }
+  function setView(v) { view = v; $("#v-waterfall").hidden = v !== "waterfall"; $("#v-problems").hidden = v !== "problems"; $("#legend").hidden = v !== "waterfall";
+    document.querySelectorAll("#tabs a").forEach(a => a.setAttribute("aria-current", a.dataset.view === v ? "page" : "false")); if (v === "waterfall") requestAnimationFrame(drawLinks); }
+  function onHash() { const h = location.hash.slice(1); setView(h === "problems" ? "problems" : "waterfall"); }
+  window.addEventListener("hashchange", onHash);
+  document.addEventListener("click", e => {
+    const c = e.target.closest("[data-copy]"); if (c) { navigator.clipboard?.writeText(c.dataset.copy).then(() => { c.textContent = "Copied"; setTimeout(() => c.textContent = "Copy", 1200); }, () => {}); return; }
+    const k = e.target.closest("[data-k]"); if (!k) { if (!e.target.closest(".search")) $("#hits").hidden = true; return; }
+    const fromFall = !!k.closest("#fall");
+    if (view !== "waterfall") { location.hash = "waterfall"; setTimeout(() => select(k.dataset.k, true), 30); }
+    else select(fromFall && sel === k.dataset.k ? null : k.dataset.k, !fromFall);
+    $("#hits").hidden = true; });
+  $("#clear").addEventListener("click", () => select(null));
+  $("#showall").addEventListener("change", applyFocus);
+  $("#scroller").addEventListener("scroll", () => requestAnimationFrame(placeHeads), { passive: true });
+  function setDark(on) { mode = on ? "dark" : "light"; $("#darkmode").checked = on; if (!on && sel && sel[0] === "D") sel = "M" + sel.slice(1);
+    try { localStorage.setItem("wf2-mode", mode); } catch (x) {} buildFall(); renderTrace(); }
+  $("#darkmode").addEventListener("change", e => setDark(e.target.checked));
+  // hotkeys: 1 Waterfall, 2 Problems, 3 Display Dark mode, Esc clear selection (ignored while typing in a field)
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") { $("#hits").hidden = true; if (document.activeElement === $("#q")) $("#q").blur(); select(null); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
+    if (e.key === "1") { e.preventDefault(); location.hash = "waterfall"; }
+    else if (e.key === "2") { e.preventDefault(); location.hash = "problems"; }
+    else if (e.key === "3") { e.preventDefault(); setDark(mode !== "dark"); } });
+  const index = [...FK, ...AG, ...AM, ...MK].map(k => ({ k, hay: (nameOf(k) + " " + val[k].text + " " + (k[0] === "M" ? mDark[k].text + " " + row(k)[3] : k[0] === "A" ? row(k)[2] : "")).toLowerCase() }));
+  $("#q").addEventListener("input", () => { const q = $("#q").value.trim().toLowerCase().replace(/^#/, ""); const box = $("#hits");
+    if (!q) { box.hidden = true; return; } const hits = index.filter(x => x.hay.includes(q)).slice(0, 40);
+    box.innerHTML = hits.length ? hits.map(x => `<button type="button" data-k="${x.k}"><span class="t">${x.k[0]}</span>${sw(val[x.k].css)}<span>${esc(nameOf(x.k))}</span></button>`).join("") : `<div class="muted" style="padding:8px 10px">No match</div>`; box.hidden = false; });
+  let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawLinks, 120); });
+  // zoom controls, wheel zoom and drag to pan
+  $("#z-in").addEventListener("click", () => setZoom(zoom * 1.2));
+  $("#z-out").addEventListener("click", () => setZoom(zoom / 1.2));
+  $("#z-100").addEventListener("click", () => setZoom(1));
+  $("#z-fit").addEventListener("click", () => { const sc = $("#scroller"); setZoom((sc.clientWidth - 8) / $("#fall").offsetWidth); sc.scrollLeft = 0; });
+  $("#z-fit").title = "Fit all five columns to the pane width";
+  $("#z-wheel").addEventListener("click", e => { wheelZoom = !wheelZoom; e.currentTarget.setAttribute("aria-pressed", wheelZoom); try { localStorage.setItem("wf2-wheel", wheelZoom ? "1" : "0"); } catch (x) {} });
+  $("#scroller").addEventListener("wheel", e => { if (!(wheelZoom || e.ctrlKey || e.metaKey)) return; e.preventDefault();
+    const step = Math.exp(-Math.max(-60, Math.min(60, e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY)) * 0.0025); setZoom(zoom * step, e.clientX, e.clientY); }, { passive: false });
+  // click and drag anywhere in the pane (also on tokens): a press that moves more than 4px pans and does not count as a click
+  (function pan() { const sc = $("#scroller"); let st = null, dragged = false;
+    sc.addEventListener("pointerdown", e => { if (e.button !== 0 || e.pointerType === "touch") return; const r = sc.getBoundingClientRect(); if (e.clientX - r.left > sc.clientWidth || e.clientY - r.top > sc.clientHeight) return;
+      st = { x: e.clientX, y: e.clientY, l: sc.scrollLeft, t: sc.scrollTop, id: e.pointerId, on: false }; dragged = false; });
+    sc.addEventListener("pointermove", e => { if (!st) return; const dx = e.clientX - st.x, dy = e.clientY - st.y;
+      if (!st.on) { if (Math.abs(dx) + Math.abs(dy) < 5) return; st.on = true; dragged = true; sc.setPointerCapture(st.id); sc.classList.add("panning"); }
+      sc.scrollLeft = st.l - dx; sc.scrollTop = st.t - dy; e.preventDefault(); });
+    const end = () => { if (!st) return; if (st.on) { sc.classList.remove("panning"); try { sc.releasePointerCapture(st.id); } catch (x) {} } st = null; };
+    sc.addEventListener("pointerup", end); sc.addEventListener("pointercancel", end);
+    sc.addEventListener("click", e => { if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false; } }, true);
+    sc.addEventListener("dragstart", e => e.preventDefault()); })();
+  try { const z = parseFloat(localStorage.getItem("wf2-zoom")); if (z >= 0.2 && z <= 2) zoom = z; const w = localStorage.getItem("wf2-wheel"); if (w === "0") { wheelZoom = false; $("#z-wheel").setAttribute("aria-pressed", "false"); } } catch (e) {}
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawLinks());
+
+  $("#darkmode").checked = mode === "dark";
+  $("#snap").textContent = D.snapshot + " · color variables only · read-only snapshot of the Variables panel";
+  renderProblems(); buildFall(); onHash();
+  select(MK.find(k => nameOf(k) === "component-level/button/primary/surface") || null, false);
+})();
+</script>

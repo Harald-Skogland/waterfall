@@ -1,0 +1,406 @@
+<title>Scarlet Token Waterfall</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&family=Newsreader:opsz,wght@6..72,500&display=swap">
+<style>
+/* Layout: a left-to-right waterfall (Foundation → generic Alias → multipurpose Alias → Mapped) with links drawn behind the columns; a trace panel fixed to the right edge (bottom sheet on phones). */
+:root {
+  --bg: #FBF7F6; --panel: #FFFFFF; --sunk: #F4EDEC; --ink: #1D1716; --muted: #6B5F5E; --line: #E9DFDE;
+  --link: #BFB2B1; --hot: #B3140E; --hot-soft: #FBE1E0; --focus: #5E1077;
+  --flag-warn-bg: #FBEBD3; --flag-warn: #7A4A05; --flag-crit-bg: #FBE1E0; --flag-crit: #8E1410; --flag-info-bg: #EDE3F7; --flag-info: #4D1A66;
+  --check-a: #E9E2E1; --check-b: #FFFFFF; --black: #000000;
+  --f-display: "Newsreader", Georgia, "Times New Roman", serif;
+  --f-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --panel-w: 380px;
+}
+/* Single light theme by choice: the page always renders light, whatever the viewer's theme. */
+:root { color-scheme: light; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 13px/1.4 var(--f-ui); }
+html, body { height: 100%; }
+.page { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 16px; display: flex; flex-direction: column; gap: 14px; height: 100%; }
+.page > * { flex: none; }
+.stage { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--panel-w); gap: 16px; }
+#v-problems { flex: 1 1 auto; min-height: 0; overflow: auto; }
+@media (max-width: 1100px) { :root { --panel-w: 300px; } }
+h1 { font: 500 32px/1.1 var(--f-display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font: 500 19px/1.2 var(--f-display); margin: 0; }
+.sub { color: var(--muted); margin: 6px 0 0; }
+.eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+code, .mono { font-family: var(--f-mono); font-size: 12px; }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.tabs, .seg { display: inline-flex; background: var(--sunk); border-radius: 8px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.tabs a, .seg button { border: 0; background: none; padding: 6px 12px; border-radius: 6px; color: var(--muted); text-decoration: none; cursor: pointer; font-weight: 500; }
+.tabs a[aria-current="page"], .seg button[aria-pressed="true"] { background: var(--panel); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.tabs .n { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 400; margin-left: 4px; }
+.search { position: relative; flex: 1 1 240px; min-width: 0; max-width: 420px; }
+.search input { width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+.hits { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; right: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; max-height: 320px; overflow: auto; box-shadow: 0 8px 24px rgba(0,0,0,.12); }
+.hits button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; border: 0; background: none; padding: 6px 10px; cursor: pointer; }
+.hits button:hover, .hits button:focus-visible { background: var(--sunk); }
+.hits .t { color: var(--muted); font-weight: 600; width: 14px; }
+.clear { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+.legend { color: var(--muted); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+.legend i { display: inline-block; width: 22px; height: 0; border-top: 2px solid var(--link); vertical-align: middle; margin-right: 4px; }
+.legend i.hot { border-color: var(--hot); }
+.legend i.dash { border-top-style: dashed; }
+
+.pane { position: relative; height: 100%; min-height: 0; min-width: 0; }
+.scroller { overflow: auto; height: 100%; min-height: 0; min-width: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overscroll-behavior: contain; cursor: grab; padding-top: 46px; }
+.scroller.panning { cursor: grabbing; user-select: none; }
+.sizer { position: relative; }
+.fall { transform-origin: 0 0; }
+.zoom { position: absolute; z-index: 4; right: 14px; bottom: 14px; display: flex; align-items: center; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px; box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+.zoom button { border: 0; background: none; min-width: 30px; height: 28px; border-radius: 5px; cursor: pointer; font-weight: 500; padding: 0 8px; }
+.zoom button:hover { background: var(--sunk); }
+.zoom button[aria-pressed="true"] { background: var(--sunk); color: var(--ink); }
+.zoom output { min-width: 46px; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+.zoom .sep { width: 1px; height: 18px; background: var(--line); margin: 0 3px; }
+.fall { position: relative; display: grid; grid-template-columns: 170px 190px 250px 280px 300px; column-gap: 130px; padding: 16px 20px 24px; width: max-content; align-items: start; }
+.fall svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.fall svg path { fill: none; stroke: var(--link); stroke-width: 1; opacity: .55; display: none; }
+.fall svg path.dk { stroke-dasharray: 3 3; }
+.fall.showall svg path { display: inline; }
+.fall.focus svg path { display: none; }
+.fall.focus svg path.on { display: inline; stroke: var(--hot); stroke-width: 1.6; opacity: 1; }
+.toggle { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; user-select: none; color: var(--ink); }
+.toggle input { margin: 0; accent-color: var(--hot); }
+/* column headings live outside the zoomed content so they stay put and line up at any zoom */
+.heads { position: absolute; z-index: 3; top: 1px; left: 1px; right: 1px; height: 46px; overflow: hidden; pointer-events: none; background: var(--panel); border-bottom: 1px solid var(--line); border-radius: 10px 10px 0 0; }
+.head { position: absolute; top: 0; height: 46px; padding: 7px 8px 0; display: grid; align-content: start; gap: 1px; min-width: 0; }
+.head b { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.head span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.head.dark { background: var(--black); color: #ECECEC; }
+.head.dark span { color: #CFC5C4; }
+.col { position: relative; z-index: 1; display: grid; gap: 1px; min-width: 0; }
+.colhead { position: sticky; top: 0; background: var(--panel); padding-bottom: 8px; z-index: 2; }
+.colhead .eyebrow { color: var(--ink); }
+.colhead span { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.grp { font-size: 11px; color: var(--muted); font-weight: 600; padding: 10px 4px 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.node { display: flex; align-items: center; gap: 6px; height: 22px; padding: 0 6px; border-radius: 5px; cursor: pointer; border: 0; background: none; text-align: left; width: 100%; min-width: 0; }
+.node:hover { background: var(--sunk); }
+.node .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.node.unused .nm { color: var(--muted); opacity: .6; }
+.fall.focus .node .nm { opacity: .3; }
+.fall.focus .node.on .nm { opacity: 1; color: var(--ink); }
+.fall.focus .node.sel { background: var(--hot-soft); box-shadow: inset 0 0 0 1px var(--hot); }
+.node .mk { font-size: 10px; color: var(--flag-crit); font-weight: 600; }
+/* token names: a softer ink on white; selected route goes back to full ink */
+.fall { --node-ink: #7A6E6D; }
+.col:not(.darkcol) .grp { color: #141414; } /* folder headers: grey/100 */
+.col.darkcol .grp { color: #ECECEC; } /* reversed on black: folder headers grey/10 */
+.node .nm { color: var(--node-ink); }
+/* Dark mode: Mapped columns sit on black (basic/black) with light text, like the tokens' own Dark mode */
+/* Light + Dark: each Mapped column gets a Dark twin on its right, on black (basic/black) with light text */
+.col.darkcol { --node-ink: #A39796; --on-black: #ECECEC; --on-black-muted: #CFC5C4; background: var(--black); color: var(--on-black); border-radius: 0; padding: 0 6px 10px; margin: -16px 0 -24px -112px; padding-top: 16px; }
+.fall.focus .col.darkcol .node .nm { opacity: .62; }
+.fall.focus .col.darkcol .node.on .nm { opacity: 1; color: var(--on-black); }
+.col.darkcol .grp, .col.darkcol .node.unused .nm { color: var(--on-black-muted); }
+.col.darkcol .node:hover { background: #2A2221; }
+.fall.focus .col.darkcol .node.sel { background: #4A1A17; box-shadow: inset 0 0 0 1px #FF8A84; }
+.col.darkcol .mk { color: #FF8A84; }
+.sw { width: 14px; height: 14px; flex: none; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.14); display: inline-block; background-image: linear-gradient(var(--c), var(--c)), conic-gradient(var(--check-a) 25%, var(--check-b) 0 50%, var(--check-a) 0 75%, var(--check-b) 0); background-size: 100% 100%, 6px 6px; }
+.dk { background: var(--black); padding: 2px; border-radius: 4px; display: inline-flex; flex: none; }
+.sw.lg { width: 32px; height: 32px; border-radius: 7px; }
+.dk.lg { padding: 4px; border-radius: 9px; }
+
+/* fixed trace panel */
+.trace { height: 100%; min-height: 0; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: auto; overscroll-behavior: contain; padding: 18px; display: grid; gap: 16px; align-content: start; }
+@media (max-width: 600px) { .page { height: auto; } .stage { grid-template-columns: minmax(0, 1fr); } .scroller { height: 65vh; } .trace { height: auto; } }
+.trace .name { font: 500 20px/1.2 var(--f-display); word-break: break-word; }
+.trace .path { color: var(--muted); font-size: 12px; word-break: break-word; }
+.kv { display: grid; gap: 5px; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.hex { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.chain { display: grid; }
+.step { display: grid; grid-template-columns: 22px minmax(0,1fr); gap: 10px; align-items: center; padding: 5px 0; position: relative; }
+.step + .step::before { content: ""; position: absolute; left: 10px; top: -5px; height: 10px; border-left: 1px dashed var(--muted); }
+.step .sw { width: 22px; height: 22px; border-radius: 5px; }
+.step small { display: block; color: var(--muted); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; }
+.lnk { color: var(--ink); text-decoration: none; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 0; cursor: pointer; text-align: left; word-break: break-word; }
+.lnk:hover { border-color: var(--ink); }
+.feeds { display: flex; flex-wrap: wrap; gap: 5px; }
+.feeds button { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 3px 7px; font-size: 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+.copy { border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; margin-left: 6px; }
+.flags { display: flex; gap: 4px; flex-wrap: wrap; }
+.flag { font-size: 11px; padding: 1px 7px; border-radius: 999px; white-space: nowrap; font-weight: 500; }
+.flag.warn { background: var(--flag-warn-bg); color: var(--flag-warn); }
+.flag.crit { background: var(--flag-crit-bg); color: var(--flag-crit); }
+.flag.info { background: var(--flag-info-bg); color: var(--flag-info); }
+.muted { color: var(--muted); }
+.same { color: var(--muted); font-style: italic; }
+
+.problems { display: grid; gap: 14px; }
+.prob { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 8px; }
+.prob header { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; flex-wrap: wrap; }
+.prob p { margin: 0; color: var(--muted); max-width: 75ch; }
+.prob .feeds { max-height: none; overflow: visible; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; align-items: start; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 10px 8px; display: grid; gap: 1px; min-width: 0; background: var(--panel); }
+.card h3 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: #141414; word-break: break-word; }
+.card button { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 0; border: 0; background: none; text-align: left; padding: 3px 4px; border-radius: 5px; cursor: pointer; }
+.card button:hover { background: var(--sunk); }
+.card button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; color: #7A6E6D; }
+.card button:hover span { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+
+<div class="page">
+  <header>
+    <h1>Scarlet Token Waterfall</h1>
+    <p class="sub" id="snap"></p>
+  </header>
+
+  <div class="bar">
+    <nav class="tabs" id="tabs" aria-label="Views">
+      <a href="#waterfall" data-view="waterfall" aria-keyshortcuts="1">Waterfall (1)</a>
+      <a href="#problems" data-view="problems" aria-keyshortcuts="2">Problems (2)</a>
+    </nav>
+    <label class="toggle"><input type="checkbox" id="darkmode" aria-keyshortcuts="3"> Display Dark mode (3)</label>
+    <div class="search">
+      <input type="search" id="q" placeholder="Find a token, hex or code syntax" aria-label="Find a token" autocomplete="off">
+      <div class="hits" id="hits" hidden></div>
+    </div>
+    <button type="button" class="clear" id="clear" aria-keyshortcuts="Escape">Clear selection (Esc)</button>
+    <label class="toggle"><input type="checkbox" id="showall"> Show all connections</label>
+  </div>
+
+  <div class="legend" id="legend"><span><i></i>Light source</span><span><i class="dash"></i>Dark source (Display Dark mode)</span><span><i class="hot"></i>Route of the selected token</span><span><b class="mk">F</b> Mapped token that skips Alias</span><span>Faded = not used further down</span></div>
+
+  <section id="v-waterfall" class="stage">
+    <div class="pane">
+      <div class="heads" id="heads" aria-hidden="true"></div>
+      <div class="scroller" id="scroller"><div class="sizer" id="sizer"><div class="fall" id="fall"><svg id="links" aria-hidden="true"></svg></div></div></div>
+      <div class="zoom" role="group" aria-label="Zoom">
+        <button type="button" id="z-out" aria-label="Zoom out">−</button>
+        <output id="z-val" aria-live="polite">100%</output>
+        <button type="button" id="z-in" aria-label="Zoom in">+</button>
+        <span class="sep"></span>
+        <button type="button" id="z-fit" title="Fit the four columns to the pane width">Fit</button>
+        <button type="button" id="z-100">100%</button>
+        <span class="sep"></span>
+        <button type="button" id="z-wheel" aria-pressed="true" title="When on, the mouse wheel zooms. When off, it scrolls; hold Ctrl or ⌘ to zoom.">Wheel zoom</button>
+      </div>
+    </div>
+    <aside class="trace" id="trace" aria-live="polite"></aside>
+  </section>
+  <section id="v-problems" class="problems" hidden></section>
+</div>
+
+<script>
+/*DATA*/
+(function () {
+  const D = window.WATERFALL, T = { F: D.F, A: D.A, M: D.M };
+  const GENERIC = /^(primary|secondary|neutral|basic)\//;
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const TIER = { F: "Foundation", A: "Alias", M: "Mapped", D: "Mapped · Dark" };
+
+  // ---------- model ----------
+  const parse = r => { if (!r) return null; if (r[0] === "#") return { raw: r.slice(1) }; const m = /^([FAM])(\d+)(?:@(\d+))?$/.exec(r); return m ? { t: m[1], i: +m[2], op: m[3] ? +m[3] : null, k: m[1] + m[2] } : null; };
+  const row = k => (k[0] === "D" ? T.M : T[k[0]])[+k.slice(1)];
+  const nameOf = k => row(k)[0];
+  const rgba = (hex, op) => { let a = hex.length === 8 ? parseInt(hex.slice(6), 16) / 255 : 1; if (op != null) a *= op / 100; const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16); return a >= 0.999 ? "#" + hex.slice(0, 6) : `rgba(${r},${g},${b},${a.toFixed(2)})`; };
+  const hexText = (hex, op) => { let a = hex.length === 8 ? parseInt(hex.slice(6), 16) / 255 : 1; if (op != null) a *= op / 100; return "#" + hex.slice(0, 6) + (a < 0.999 ? " · " + Math.round(a * 100) + "%" : ""); };
+  function chain(ref) { const steps = []; let p = parse(ref), op = null, g = 0;
+    while (p && g++ < 12) { if (p.raw) { steps.push({ raw: p.raw }); break; } if (p.op != null) op = p.op; steps.push(p.k); p = parse(row(p.k)[1]); }
+    const end = steps[steps.length - 1]; const hex = end && end.raw ? end.raw : null; return { steps, op, css: hex ? rgba(hex, op) : "transparent", text: hex ? hexText(hex, op) : "—" }; }
+  const val = {}; // resolved colour per key (Light for M) + dark
+  T.F.forEach((f, i) => val["F" + i] = chain(f[1]));
+  T.A.forEach((a, i) => val["A" + i] = chain(a[1]));
+  // M keys are the Light side of a mapped token, D keys the Dark side of the same token
+  const mDark = {}; T.M.forEach((m, i) => { val["M" + i] = chain(m[1]); val["D" + i] = mDark["M" + i] = mDark["D" + i] = chain(m[2]); });
+  // edges: {from, to, m: 'A' | 'L' | 'D'}
+  const edges = [];
+  T.A.forEach((a, i) => { const p = parse(a[1]); if (p && !p.raw) edges.push({ from: p.k, to: "A" + i, m: "A" }); });
+  T.M.forEach((m, i) => { const l = parse(m[1]), d = parse(m[2]);
+    if (l && !l.raw) edges.push({ from: l.k, to: "M" + i, m: "L" });
+    if (d && !d.raw) edges.push({ from: d.k, to: "D" + i, m: "D" }); });
+  const inMode = (e, mode) => e.m !== "D" || mode === "dark";
+  // reachability (any mode) for fading
+  const used = new Set(); T.M.forEach((m, i) => { used.add("M" + i); used.add("D" + i); [m[1], m[2]].forEach(r => chain(r).steps.forEach(s => typeof s === "string" && used.add(s))); });
+  // flags
+  const norm = s => s.replace(/^var\((.*)\)$/, "$1");
+  const csMap = {}; T.M.forEach((m, i) => m[3] && (csMap[norm(m[3])] = csMap[norm(m[3])] || []).push("M" + i)); T.A.forEach((a, i) => a[2] && (csMap[norm(a[2])] = csMap[norm(a[2])] || []).push("A" + i));
+  const skips = r => { const p = parse(r); return !p || p.raw || p.t === "F"; };
+  const flagsM = {}; T.M.forEach((m, i) => flagsM["M" + i] = flagsM["D" + i] = { same: m[1] === m[2], skip: skips(m[1]) || skips(m[2]), nocs: !m[3], dup: !!m[3] && csMap[norm(m[3])].length > 1 });
+
+  // ---------- columns ----------
+  function groups(keys, sortNum) { const root = { leaves: [], kids: new Map() };
+    keys.forEach(k => { const parts = nameOf(k).split("/"); let n = root; parts.slice(0, -1).forEach(p => { if (!n.kids.has(p)) n.kids.set(p, { leaves: [], kids: new Map() }); n = n.kids.get(p); }); n.leaves.push(k); });
+    const out = []; (function walk(n, path) { if (n.leaves.length) { const l = sortNum ? [...n.leaves].sort((a, b) => (parseInt(nameOf(a).split("/").pop()) || 0) - (parseInt(nameOf(b).split("/").pop()) || 0)) : n.leaves; out.push({ path, items: l }); } n.kids.forEach((c, k) => walk(c, path ? path + "/" + k : k)); })(root, ""); return out; }
+  const FK = T.F.map((_, i) => "F" + i), AG = T.A.map((_, i) => "A" + i).filter(k => GENERIC.test(nameOf(k))), AM = T.A.map((_, i) => "A" + i).filter(k => !GENERIC.test(nameOf(k))), MK = T.M.map((_, i) => "M" + i);
+  const MCL = MK.filter(k => nameOf(k).startsWith("component-level/")), MMP = MK.filter(k => !nameOf(k).startsWith("component-level/"));
+  const toD = keys => keys.map(k => "D" + k.slice(1));
+  const colsFor = m => { const c = [["Foundation", FK, true, "colors", 170], ["Alias · generic", AG, true, "aliases", 190], ["Alias · multipurpose", AM, false, "aliases", 250], ["Mapped · Light", MMP, false, "tokens · multi-purpose, miscellaneous, doc", 280]];
+    if (m === "dark") c.push(["Mapped · Dark", toD(MMP), false, "same tokens in Dark mode", 280, true]);
+    c.push(["Mapped · component-level · Light", MCL, false, "tokens", 300]);
+    if (m === "dark") c.push(["Mapped · component-level · Dark", toD(MCL), false, "same tokens in Dark mode", 300, true]);
+    return c; };
+
+  let mode = "light", sel = null, view = "waterfall", zoom = 1, wheelZoom = true;
+  function sizeSizer() { const f = $("#fall"), s = $("#sizer"); f.style.transform = `scale(${zoom})`; s.style.width = f.offsetWidth * zoom + "px"; s.style.height = f.offsetHeight * zoom + "px"; $("#z-val").textContent = Math.round(zoom * 100) + "%"; placeHeads(); }
+  function placeHeads() { const sc = $("#scroller"), cols = [...$("#fall").querySelectorAll(".col")], heads = [...$("#heads").children];
+    $("#heads").style.right = Math.max(1, sc.offsetWidth - sc.clientWidth - 1) + "px";
+    cols.forEach((c, i) => { const h = heads[i]; if (!h) return; const dark = c.classList.contains("darkcol"); const pad = dark ? 0 : 6;
+      h.style.left = (c.offsetLeft * zoom - sc.scrollLeft - pad) + "px"; h.style.width = (c.offsetWidth * zoom + pad) + "px"; }); }
+  function setZoom(z, ax, ay) { const sc = $("#scroller"); const nz = Math.min(2, Math.max(0.2, z)); if (nz === zoom) return;
+    const r = sc.getBoundingClientRect(); const mx = ax == null ? sc.clientWidth / 2 : ax - r.left, my = ay == null ? sc.clientHeight / 2 : ay - r.top;
+    const cx = (sc.scrollLeft + mx) / zoom, cy = (sc.scrollTop + my) / zoom; zoom = nz; sizeSizer(); sc.scrollLeft = cx * zoom - mx; sc.scrollTop = cy * zoom - my;
+    try { localStorage.setItem("wf2-zoom", String(zoom)); } catch (e) {} }
+  try { const m = localStorage.getItem("wf2-mode"); if (m) mode = m === "light" ? "light" : "dark"; } catch (e) {}
+
+  const sw = (css, cls) => `<span class="sw${cls ? " " + cls : ""}" style="--c:${css}"></span>`;
+  function nodeHtml(k) { const t = k[0]; const sws = sw(val[k].css);
+    const r = row(k); const sk = t === "M" ? skips(r[1]) : t === "D" ? skips(r[2]) : false;
+    const mk = sk ? '<span class="mk" title="Skips Alias">F</span>' : "";
+    return `<button type="button" class="node${used.has(k) ? "" : " unused"}" data-k="${k}" title="${esc(nameOf(k))}">${sws}<span class="nm">${esc(nameOf(k).split("/").pop())}</span>${mk}</button>`; }
+  function buildFall() {
+    const fall = $("#fall"); fall.querySelectorAll(".col").forEach(c => c.remove());
+    const COLS = colsFor(mode); fall.style.gridTemplateColumns = COLS.map(c => c[4] + "px").join(" ");
+    $("#heads").innerHTML = COLS.map(([title, keys, num, noun, w, dark]) => `<div class="head${dark ? " dark" : ""}" title="${esc(title + " · " + keys.length + " " + noun)}"><b>${title}</b><span>${keys.length} ${noun}</span></div>`).join("");
+    COLS.forEach(([title, keys, num, noun, w, dark]) => { const col = document.createElement("div"); col.className = "col" + (dark ? " darkcol" : "");
+      let h = "";
+      groups(keys, num).forEach(g => { h += `<div class="grp" title="${esc(g.path)}">${esc(g.path || "(root)")}</div>` + g.items.map(nodeHtml).join(""); });
+      col.innerHTML = h; fall.appendChild(col); });
+    requestAnimationFrame(drawLinks);
+  }
+  const pos = {};
+  function drawLinks() {
+    const fall = $("#fall"), box = fall.getBoundingClientRect(); const svg = $("#links"); const z = zoom;
+    svg.setAttribute("width", fall.offsetWidth); svg.setAttribute("height", fall.offsetHeight); sizeSizer();
+    fall.querySelectorAll(".node").forEach(n => { const r = n.getBoundingClientRect(); pos[n.dataset.k] = { l: (r.left - box.left) / z, r: (r.right - box.left) / z, y: (r.top - box.top + r.height / 2) / z, col: n.parentNode }; });
+    let h = ""; edges.forEach((e, ix) => { if (!inMode(e, mode)) return; const a = pos[e.from], b = pos[e.to]; if (!a || !b) return;
+      let d; if (a.col === b.col) { const x = a.l - 4, out = Math.min(60, 18 + Math.abs(b.y - a.y) * .04); d = `M${x},${a.y} C${x - out},${a.y} ${x - out},${b.y} ${x},${b.y}`; }
+      else { const x1 = a.r - 2, x2 = b.l + 2, dx = (x2 - x1) * .5; d = `M${x1},${a.y} C${x1 + dx},${a.y} ${x2 - dx},${b.y} ${x2},${b.y}`; }
+      h += `<path data-e="${ix}" class="${e.m === "D" ? "dk" : ""}" d="${d}"/>`; });
+    svg.innerHTML = h; applyFocus();
+  }
+
+  // ---------- route ----------
+  function route(k) { const nodes = new Set([k]), es = new Set();
+    const up = key => { edges.forEach((e, ix) => { if (e.to === key && inMode(e, mode)) { es.add(ix); if (!nodes.has(e.from)) { nodes.add(e.from); up(e.from); } } }); };
+    const down = key => { edges.forEach((e, ix) => { if (e.from === key && inMode(e, mode)) { es.add(ix); if (!nodes.has(e.to)) { nodes.add(e.to); down(e.to); } } }); };
+    up(k); down(k); return { nodes, es }; }
+  function applyFocus() { const fall = $("#fall"); fall.classList.toggle("focus", !!sel); fall.classList.toggle("showall", $("#showall").checked);
+    fall.querySelectorAll(".node.on, .node.sel").forEach(n => n.classList.remove("on", "sel")); $("#links").querySelectorAll("path.on").forEach(p => p.classList.remove("on"));
+    if (!sel) return; const r = route(sel);
+    r.nodes.forEach(k => { const n = fall.querySelector(`.node[data-k="${k}"]`); if (n) n.classList.add("on"); });
+    const s = fall.querySelector(`.node[data-k="${sel}"]`); if (s) s.classList.add("sel");
+    r.es.forEach(ix => { const p = $("#links").querySelector(`path[data-e="${ix}"]`); if (p) p.classList.add("on"); }); }
+
+  // ---------- trace panel ----------
+  function chainHtml(ref, title) { const c = chain(ref);
+    const st = c.steps.map(s => { if (typeof s !== "string") return `<div class="step">${sw(rgba(s.raw, c.op))}<div><small>Raw value</small><span class="hex">${hexText(s.raw, c.op)}</span></div></div>`;
+      return `<div class="step">${sw(val[s].css)}<div><small>${TIER[s[0]]}</small><button type="button" class="lnk" data-k="${s}">${esc(nameOf(s))}</button></div></div>`; }).join("");
+    return `<div class="kv"><div class="eyebrow">${title}</div><div class="chain">${st}</div><div class="hex">Resolves to ${c.text}</div></div>`; }
+  function feedsHtml(k) { const list = edges.filter(e => e.from === k).map(e => e.to); const uniq = [...new Set(list)];
+    if (!uniq.length) return `<span class="muted">Nothing references this.</span>`;
+    return `<div class="feeds">` + uniq.map(x => `<button type="button" data-k="${x}">${sw(val[x].css)}${x[0] === "D" ? "M" : x[0]} · ${esc(nameOf(x))}${x[0] === "D" ? " (Dark)" : ""}</button>`).join("") + `</div>`; }
+  const flagHtml = f => [f.skip && '<span class="flag crit">skips alias</span>', f.same && '<span class="flag warn">Dark = Light</span>', f.dup && '<span class="flag info">dup code syntax</span>', f.nocs && '<span class="flag info">no code syntax</span>'].filter(Boolean).join("");
+  function renderTrace() { const el = $("#trace");
+    if (!sel) { el.innerHTML = `<div><div class="eyebrow">Trace</div><p class="muted">Click any token in the waterfall. A foundation color lights up every branch it feeds; a mapped token lights up its route back to Foundation. The details show here.</p></div><div class="kv"><div class="eyebrow">In this snapshot</div><div>${T.F.length} foundation · ${T.A.length} alias · ${T.M.length} mapped</div></div>`; return; }
+    const k = sel, t = k[0], r = row(k), parts = r[0].split("/"); const rt = route(k);
+    let h = `<div><div class="eyebrow">${TIER[t]}</div><div class="name">${esc(parts.pop())}</div><div class="path">${esc(parts.join("/"))}</div></div>`;
+    if (t === "M" || t === "D") { const f = flagsM[k], lk = "M" + k.slice(1);
+      h += `<div class="cols2"><div class="kv"><div class="eyebrow">Light</div>${sw(val[lk].css, "lg")}<span class="hex">${val[lk].text}</span></div><div class="kv"><div class="eyebrow">Dark</div><span><span class="dk lg">${sw(mDark[lk].css, "lg")}</span></span><span class="hex">${mDark[lk].text}</span></div></div>`;
+      const lr = chainHtml(r[1], "Light route"), dr = f.same ? `<div class="kv"><div class="eyebrow">Dark route</div><span class="same">Same as Light</span></div>` : chainHtml(r[2], "Dark route");
+      h += t === "D" ? (f.same ? chainHtml(r[2], "Dark route (same as Light)") : dr + lr) : lr + dr;
+      h += `<div class="kv"><div class="eyebrow">Code syntax</div><div>${r[3] ? `<code>${esc(r[3])}</code><button class="copy" type="button" data-copy="${esc(r[3])}">Copy</button>` : '<span class="muted">None</span>'}</div></div>`;
+      h += `<div class="kv"><div class="eyebrow">Description</div><div>${r[4] ? esc(r[4]) : '<span class="muted">None</span>'}</div></div>`;
+      const fl = flagHtml(f); if (fl) h += `<div class="flags">${fl}</div>`;
+    } else {
+      h += `<div class="kv">${sw(val[k].css, "lg")}<span class="hex">${val[k].text}</span></div>`;
+      if (t === "A") h += chainHtml(k, "Route to Foundation");
+      const rl = [...rt.nodes].filter(x => x[0] === "M").length, rd = [...rt.nodes].filter(x => x[0] === "D").length;
+      h += `<div class="kv"><div class="eyebrow">Feeds directly</div>${feedsHtml(k)}</div><div class="kv"><div class="eyebrow">Ends up in</div><div>${rl} mapped token${rl === 1 ? "" : "s"} in Light${mode === "dark" ? ` · ${rd} in Dark` : ""}</div></div>`;
+      if (t === "A") { h += `<div class="kv"><div class="eyebrow">Code syntax</div><div>${r[2] ? `<code>${esc(r[2])}</code>` : '<span class="muted">None</span>'}</div></div>`; if (r[3]) h += `<div class="kv"><div class="eyebrow">Description</div><div>${esc(r[3])}</div></div>`; }
+      if (!used.has(k)) h += `<div class="flags"><span class="flag warn">not used by mapped</span></div>`;
+    }
+    el.innerHTML = h; el.scrollTop = 0; }
+
+  // ---------- problems ----------
+  function problems() { const P = [];
+    const all = MK; P.push(["Mapped tokens that skip Alias", "crit", all.filter(k => flagsM[k].skip), "These point at a foundation color or a raw value in Light or Dark. Each needs its own alias to follow the tier rule."]);
+    P.push(["Dark = Light", "warn", all.filter(k => flagsM[k].same), "Dark points at the same source as Light, so these tokens do not change in Dark mode."]);
+    const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);
+    P.push(["Duplicate code syntax", "info", dup.flatMap(([, l]) => l), dup.length + " code syntax values are used by more than one variable: " + dup.map(([c]) => c).join(", ") + "."]);
+    P.push(["Mapped tokens without code syntax", "info", all.filter(k => flagsM[k].nocs), "No WEB code syntax is set."]);
+    P.push(["Aliases not used by any mapped token", "warn", [...AG, ...AM].filter(k => !used.has(k)), "Nothing in Mapped reaches these, directly or through another alias."]);
+    return P; }
+  function renderProblems() { const P = problems();
+    const item = k => `<button type="button" data-k="${k}" title="${esc(nameOf(k))}">${sw(val[k].css)}<span>${esc(nameOf(k).split("/").pop())}</span></button>`;
+    const card = (title, keys) => `<div class="card"><h3 title="${esc(title)}">${esc(title)}</h3>${keys.map(item).join("")}</div>`;
+    // cards per folder (Alias and Mapped kept apart); duplicate code syntax gets one card per shared value instead
+    const byFolder = keys => ["A", "M"].flatMap(t => groups(keys.filter(k => k[0] === t), false).map(g => card((t === "A" ? "Alias · " : "Mapped · ") + (g.path || "(root)"), g.items)));
+    const dup = Object.entries(csMap).filter(([, l]) => l.length > 1);
+    $("#v-problems").innerHTML = P.map(([t, lv, keys, txt]) => { const cards = !keys.length ? '<span class="muted">None</span>' : t === "Duplicate code syntax" ? dup.map(([c, l]) => card(c, l)).join("") : byFolder(keys).join("");
+      return `<section class="prob"><header><h2>${esc(t)}</h2><span class="flag ${lv}">${keys.length}</span></header><p>${esc(txt)}</p><div class="cards">${cards}</div></section>`; }).join(""); }
+
+  // ---------- interaction ----------
+  function select(k, scroll) { sel = k; applyFocus(); renderTrace();
+    if (scroll && k) { const n = $(`#fall .node[data-k="${k}"]`); if (n) n.scrollIntoView({ block: "center", inline: "nearest" }); } }
+  function setView(v) { view = v; $("#v-waterfall").hidden = v !== "waterfall"; $("#v-problems").hidden = v !== "problems"; $("#legend").hidden = v !== "waterfall";
+    document.querySelectorAll("#tabs a").forEach(a => a.setAttribute("aria-current", a.dataset.view === v ? "page" : "false")); if (v === "waterfall") requestAnimationFrame(drawLinks); }
+  function onHash() { const h = location.hash.slice(1); setView(h === "problems" ? "problems" : "waterfall"); }
+  window.addEventListener("hashchange", onHash);
+  document.addEventListener("click", e => {
+    const c = e.target.closest("[data-copy]"); if (c) { navigator.clipboard?.writeText(c.dataset.copy).then(() => { c.textContent = "Copied"; setTimeout(() => c.textContent = "Copy", 1200); }, () => {}); return; }
+    const k = e.target.closest("[data-k]"); if (!k) { if (!e.target.closest(".search")) $("#hits").hidden = true; return; }
+    const fromFall = !!k.closest("#fall");
+    if (view !== "waterfall") { location.hash = "waterfall"; setTimeout(() => select(k.dataset.k, true), 30); }
+    else select(fromFall && sel === k.dataset.k ? null : k.dataset.k, !fromFall);
+    $("#hits").hidden = true; });
+  $("#clear").addEventListener("click", () => select(null));
+  $("#showall").addEventListener("change", applyFocus);
+  $("#scroller").addEventListener("scroll", () => requestAnimationFrame(placeHeads), { passive: true });
+  function setDark(on) { mode = on ? "dark" : "light"; $("#darkmode").checked = on; if (!on && sel && sel[0] === "D") sel = "M" + sel.slice(1);
+    try { localStorage.setItem("wf2-mode", mode); } catch (x) {} buildFall(); renderTrace(); }
+  $("#darkmode").addEventListener("change", e => setDark(e.target.checked));
+  // hotkeys: 1 Waterfall, 2 Problems, 3 Display Dark mode, Esc clear selection (ignored while typing in a field)
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") { $("#hits").hidden = true; if (document.activeElement === $("#q")) $("#q").blur(); select(null); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
+    if (e.key === "1") { e.preventDefault(); location.hash = "waterfall"; }
+    else if (e.key === "2") { e.preventDefault(); location.hash = "problems"; }
+    else if (e.key === "3") { e.preventDefault(); setDark(mode !== "dark"); } });
+  const index = [...FK, ...AG, ...AM, ...MK].map(k => ({ k, hay: (nameOf(k) + " " + val[k].text + " " + (k[0] === "M" ? mDark[k].text + " " + row(k)[3] : k[0] === "A" ? row(k)[2] : "")).toLowerCase() }));
+  $("#q").addEventListener("input", () => { const q = $("#q").value.trim().toLowerCase().replace(/^#/, ""); const box = $("#hits");
+    if (!q) { box.hidden = true; return; } const hits = index.filter(x => x.hay.includes(q)).slice(0, 40);
+    box.innerHTML = hits.length ? hits.map(x => `<button type="button" data-k="${x.k}"><span class="t">${x.k[0]}</span>${sw(val[x.k].css)}<span>${esc(nameOf(x.k))}</span></button>`).join("") : `<div class="muted" style="padding:8px 10px">No match</div>`; box.hidden = false; });
+  let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(drawLinks, 120); });
+  // zoom controls, wheel zoom and drag to pan
+  $("#z-in").addEventListener("click", () => setZoom(zoom * 1.2));
+  $("#z-out").addEventListener("click", () => setZoom(zoom / 1.2));
+  $("#z-100").addEventListener("click", () => setZoom(1));
+  $("#z-fit").addEventListener("click", () => { const sc = $("#scroller"); setZoom((sc.clientWidth - 8) / $("#fall").offsetWidth); sc.scrollLeft = 0; });
+  $("#z-fit").title = "Fit all five columns to the pane width";
+  $("#z-wheel").addEventListener("click", e => { wheelZoom = !wheelZoom; e.currentTarget.setAttribute("aria-pressed", wheelZoom); try { localStorage.setItem("wf2-wheel", wheelZoom ? "1" : "0"); } catch (x) {} });
+  $("#scroller").addEventListener("wheel", e => { if (!(wheelZoom || e.ctrlKey || e.metaKey)) return; e.preventDefault();
+    const step = Math.exp(-Math.max(-60, Math.min(60, e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY)) * 0.0025); setZoom(zoom * step, e.clientX, e.clientY); }, { passive: false });
+  // click and drag anywhere in the pane (also on tokens): a press that moves more than 4px pans and does not count as a click
+  (function pan() { const sc = $("#scroller"); let st = null, dragged = false;
+    sc.addEventListener("pointerdown", e => { if (e.button !== 0 || e.pointerType === "touch") return; const r = sc.getBoundingClientRect(); if (e.clientX - r.left > sc.clientWidth || e.clientY - r.top > sc.clientHeight) return;
+      st = { x: e.clientX, y: e.clientY, l: sc.scrollLeft, t: sc.scrollTop, id: e.pointerId, on: false }; dragged = false; });
+    sc.addEventListener("pointermove", e => { if (!st) return; const dx = e.clientX - st.x, dy = e.clientY - st.y;
+      if (!st.on) { if (Math.abs(dx) + Math.abs(dy) < 5) return; st.on = true; dragged = true; sc.setPointerCapture(st.id); sc.classList.add("panning"); }
+      sc.scrollLeft = st.l - dx; sc.scrollTop = st.t - dy; e.preventDefault(); });
+    const end = () => { if (!st) return; if (st.on) { sc.classList.remove("panning"); try { sc.releasePointerCapture(st.id); } catch (x) {} } st = null; };
+    sc.addEventListener("pointerup", end); sc.addEventListener("pointercancel", end);
+    sc.addEventListener("click", e => { if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false; } }, true);
+    sc.addEventListener("dragstart", e => e.preventDefault()); })();
+  try { const z = parseFloat(localStorage.getItem("wf2-zoom")); if (z >= 0.2 && z <= 2) zoom = z; const w = localStorage.getItem("wf2-wheel"); if (w === "0") { wheelZoom = false; $("#z-wheel").setAttribute("aria-pressed", "false"); } } catch (e) {}
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => drawLinks());
+
+  $("#darkmode").checked = mode === "dark";
+  $("#snap").textContent = D.snapshot + " · color variables only · read-only snapshot of the Variables panel";
+  renderProblems(); buildFall(); onHash();
+  select(MK.find(k => nameOf(k) === "component-level/button/primary/surface") || null, false);
+})();
+</script>
