@@ -8,15 +8,17 @@
 ## Files
 - `src/template.html`: the whole page (CSS tokens, markup, app script) with a `/*DATA*/` marker. **Edit this, not dist.**
 - `src/data.js`: `window.WATERFALL = { snapshot, F, A, M }`. The row formats are documented at the top of `scripts/export-figma.js`.
-- `scripts/build.py`: run `python3 scripts/build.py` to produce `dist/index.html`.
-- `dist/index.html`: the built page; this is the file to publish. Commit it after every build.
+- `scripts/build.py`: run `python3 scripts/build.py` to produce two files.
+  - `dist/index.html`: the standalone page for GitHub Pages, with a doctype, charset and base styles. The page needs `[hidden]{display:none!important}` from that base.
+  - `dist/artifact.html`: the same page without a skeleton. **Publish this one as the Claude artifact.**
+- Commit `dist/` after every build.
 
 ## Workflow for a change
 1. Edit `src/template.html`.
 2. Run `python3 scripts/build.py`.
 3. Syntax-check the script:
    `node -e "const s=require('fs').readFileSync('dist/index.html','utf8');new Function(s.split('<script>')[1].split('</script>')[0]);console.log('ok')"`
-4. Publish `dist/index.html` with the Artifact tool, passing `url: https://claude.ai/artifact/6eiHzXXDcqcrCyyFPAsk3X`. From a new conversation, read the artifact first.
+4. Publish `dist/artifact.html` with the Artifact tool, passing `url: https://claude.ai/artifact/6eiHzXXDcqcrCyyFPAsk3X`. From a new conversation, read the artifact first.
 5. Commit and push.
 
 ## Refreshing the data from Figma

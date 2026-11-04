@@ -1,9 +1,12 @@
-"""Build dist/index.html by inlining src/data.js into src/template.html.
+"""Build the page by inlining src/data.js into src/template.html.
 
 Usage:  python3 scripts/build.py
-The template holds the page (CSS, markup, app script) with a /*DATA*/ marker
-where the variables snapshot goes. The output is a single self-contained file
-that can be published as a Claude artifact or hosted anywhere.
+
+Writes two files:
+  dist/index.html     standalone web page (GitHub Pages). Adds the document
+                      skeleton and the base styles the page relies on.
+  dist/artifact.html  the same page without a skeleton, for publishing as a
+                      Claude artifact (the artifact host adds its own).
 """
 from pathlib import Path
 
@@ -14,7 +17,29 @@ data = (ROOT / "src" / "data.js").read_text()
 if "/*DATA*/" not in template:
     raise SystemExit("src/template.html is missing the /*DATA*/ marker")
 
-out = ROOT / "dist" / "index.html"
-out.parent.mkdir(exist_ok=True)
-out.write_text(template.replace("/*DATA*/", data, 1))
-print(f"Built {out.relative_to(ROOT)} ({out.stat().st_size:,} bytes)")
+page = template.replace("/*DATA*/", data, 1)
+
+# Same skeleton and reset the artifact host provides, so both builds look alike.
+SKELETON_HEAD = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+"""
+SKELETON_TAIL = "\n</body>\n</html>\n"
+
+dist = ROOT / "dist"
+dist.mkdir(exist_ok=True)
+(dist / "artifact.html").write_text(page)
+(dist / "index.html").write_text(SKELETON_HEAD + page + SKELETON_TAIL)
+for name in ("index.html", "artifact.html"):
+    f = dist / name
+    print(f"Built {f.relative_to(ROOT)} ({f.stat().st_size:,} bytes)")
