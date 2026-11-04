@@ -557,7 +557,9 @@ button, input { font: inherit; color: inherit; }
   $("#darkmode").addEventListener("change", e => setDark(e.target.checked));
   // hotkeys: 1 Waterfall, 2 Problems, 3 Display Dark mode, Esc clear selection (ignored while typing in a field)
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape") { $("#hits").hidden = true; if (document.activeElement === $("#q")) $("#q").blur(); select(null); return; }
+    if (e.key === "Escape") { $("#hits").hidden = true; if (document.activeElement === $("#q")) $("#q").blur();
+      if (view === "code") { if ($("#q").value) { $("#q").value = ""; renderCode(); } return; } // Code syntax page: Esc clears the search
+      select(null); return; }
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest("input, textarea, select, [contenteditable]")) return;
     if (e.key === "1") { e.preventDefault(); location.hash = "waterfall"; }
     else if (e.key === "2") { e.preventDefault(); location.hash = "code-syntax"; }

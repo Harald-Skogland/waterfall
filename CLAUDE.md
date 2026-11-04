@@ -105,7 +105,7 @@ The export is read only. **Never change variables in Figma as part of work on th
   - All copying goes through `copyText()`, which uses the Clipboard API and falls back to a hidden textarea + `execCommand` where the API is blocked (sandboxed frames, the app's browser pane).
   - The code pane is IDE style and always dark (light text on `#141414`, green comments, blue token names), whatever the page theme.
   - Names output carries folder comment headers too (`/* … */` on Web, `// …` on Android/iOS).
-  - Search (S) filters the tree on this page.
+  - Search (S) filters the tree on this page; Esc clears the search here (on the Waterfall, Esc clears the selection).
   - localStorage keys `wf2-cs-platform` and `wf2-cs-mode`.
   - Design and plan: `docs/superpowers/specs/2026-11-04-code-syntax-page-design.md` and `docs/superpowers/plans/2026-11-04-code-syntax-page.md`.
 - Details panel: each code syntax row has Copy and **View**. View opens the token's folder on the Code syntax page, in Names mode, with its line highlighted (`openInCode(k, platform)`).
