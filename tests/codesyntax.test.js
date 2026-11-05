@@ -16,7 +16,7 @@ const key = (name, tier) => {
 };
 
 test("model tiers", () => {
-  assert.deepEqual(m.tiers.map(t => [t.name, t.count]), [["Foundation", 143], ["Alias", 157], ["Mapped", 190], ["Components", 142]]);
+  assert.deepEqual(m.tiers.map(t => [t.name, t.count]), [["Foundation", 143], ["Alias", 157], ["Mapped", 190], ["Components", 143]]);
 });
 
 test("resolve light/dark", () => {
